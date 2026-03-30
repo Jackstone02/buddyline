@@ -4,12 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { RootStackParamList } from '../../types';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import AppModal from '../../components/AppModal';
 import { useAppModal } from '../../hooks/useAppModal';
+
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -128,6 +131,8 @@ export default function SettingsScreen({ navigation }: Props) {
           Buddy Up — Never Dive Alone{'\n'}
           This app connects people only. It does not supervise dives.
         </Text>
+
+        <Text style={styles.version}>Version {APP_VERSION}</Text>
       </ScrollView>
 
       <AppModal
@@ -233,5 +238,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     paddingTop: Spacing.md,
     fontStyle: 'italic',
+  },
+  version: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    opacity: 0.6,
   },
 });

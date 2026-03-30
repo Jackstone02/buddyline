@@ -11,7 +11,10 @@
       "resizeMode": "contain",
       "backgroundColor": "#0369A1"
     },
-    "scheme": ["buddyup", "com.buddyup.app"],
+    "scheme": [
+      "buddyup",
+      "com.buddyup.app"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.buddyup.app",
@@ -40,11 +43,14 @@
         }
       },
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ],
       "intentFilters": [
         {
@@ -57,7 +63,10 @@
               "pathPrefix": "/auth/v1/callback"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -76,6 +85,11 @@
           "cameraPermission": "Allow Buddy Up to access your camera."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2c2d1fee-667d-4ef9-ab53-4cb5ad6d0231"
+      }
+    }
   }
 }
