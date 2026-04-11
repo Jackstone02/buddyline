@@ -6,7 +6,6 @@ import { RootStackParamList } from '../../types';
 import { Colors, FontSize } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
-import { registerPushToken } from '../../lib/notifications';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
@@ -39,7 +38,6 @@ export default function SplashScreen({ navigation }: Props) {
         }
 
         setProfile(profile);
-        registerPushToken(profile.id);
 
         // Incomplete onboarding — send back to finish it
         if (!profile.age_confirmed) {

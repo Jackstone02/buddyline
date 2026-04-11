@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import { Linking } from 'react-native';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
-import { registerPushToken } from '../lib/notifications';
 import { useAuthStore } from '../store/authStore';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -73,15 +72,6 @@ function parseResetUrl(url: string): { accessToken: string; refreshToken: string
 
 export default function AppNavigator() {
   const navRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
-  const { profile } = useAuthStore();
-
-  // Register push token whenever the user logs in
-  useEffect(() => {
-    if (profile?.id) {
-      registerPushToken(profile.id);
-    }
-  }, [profile?.id]);
-
   // Handle notification taps — navigate to the relevant screen
   useEffect(() => {
     const handleNotificationData = (data?: Record<string, any>) => {

@@ -14,11 +14,10 @@ Notifications.setNotificationHandler({
 });
 
 function getDeviceId(): string {
-  return (
-    Constants.installationId ??
-    (Constants as any).deviceId ??
-    `${Platform.OS}-${Date.now()}`
-  );
+  if (Constants.installationId) return Constants.installationId;
+  if ((Constants as any).deviceId) return (Constants as any).deviceId;
+  // Stable fallback using device model — never use Date.now() (changes every call)
+  return `${Platform.OS}-${Device.modelName ?? Device.osName ?? 'unknown'}`;
 }
 
 export async function registerPushToken(userId: string): Promise<void> {
