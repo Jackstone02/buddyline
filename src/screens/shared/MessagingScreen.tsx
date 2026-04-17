@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList, Message } from '../../types';
 import { Colors, Spacing, FontSize, Radius } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
@@ -26,30 +27,33 @@ export default function MessagingScreen({ navigation, route }: Props) {
   const [input, setInput] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    fetchMessages();
+  useFocusEffect(
+    useCallback(() => {
+      fetchMessages();
 
-    const channel = supabase
-      .channel('messaging')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'buddyline',
-          table: 'messages',
-          filter: `receiver_id=eq.${profile?.id}`,
-        },
-        (payload) => {
-          const newMsg = payload.new as Message;
-          if (newMsg.sender_id === otherUserId) {
-            setMessages((prev) => [...prev, newMsg]);
+      const channel = supabase
+        .channel(`messaging-${profile?.id}-${otherUserId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'buddyline',
+            table: 'messages',
+            filter: `receiver_id=eq.${profile?.id}`,
+          },
+          (payload) => {
+            const newMsg = payload.new as Message;
+            if (newMsg.sender_id === otherUserId) {
+              setMessages((prev) => [...prev, newMsg]);
+              setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+      return () => { supabase.removeChannel(channel); };
+    }, [profile?.id, otherUserId])
+  );
 
   const fetchMessages = async () => {
     if (!profile) return;

@@ -220,17 +220,21 @@ export default function CreateSessionScreen({ navigation }: Props) {
           </View>
 
           {/* Spots needed */}
-          <Text style={[styles.label, { marginTop: Spacing.md }]}>Buddies Needed</Text>
-          <View style={styles.spotsRow}>
-            {['1', '2', '3', '4'].map((n) => (
-              <TouchableOpacity
-                key={n}
-                style={[styles.spotsBtn, spotsNeeded === n && styles.spotsBtnActive]}
-                onPress={() => setSpotsNeeded(n)}
-              >
-                <Text style={[styles.spotsBtnText, spotsNeeded === n && styles.spotsBtnTextActive]}>{n}</Text>
-              </TouchableOpacity>
-            ))}
+          <Text style={[styles.label, { marginTop: Spacing.md }]}>Max Participants</Text>
+          <View style={styles.stepper}>
+            <TouchableOpacity
+              style={styles.stepperBtn}
+              onPress={() => setSpotsNeeded((v) => String(Math.max(1, parseInt(v) - 1)))}
+            >
+              <Ionicons name="remove" size={20} color={Colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.stepperValue}>{spotsNeeded}</Text>
+            <TouchableOpacity
+              style={styles.stepperBtn}
+              onPress={() => setSpotsNeeded((v) => String(parseInt(v) + 1))}
+            >
+              <Ionicons name="add" size={20} color={Colors.primary} />
+            </TouchableOpacity>
           </View>
 
           {/* Notes */}
@@ -325,19 +329,29 @@ const styles = StyleSheet.create({
   chipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
   chipText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
   chipTextActive: { color: Colors.primary },
-  spotsRow: { flexDirection: 'row', gap: Spacing.sm },
-  spotsBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: Radius.md,
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1.5,
     borderColor: Colors.border,
+    borderRadius: Radius.md,
     backgroundColor: Colors.surface,
-    alignItems: 'center',
+    overflow: 'hidden',
   },
-  spotsBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primary },
-  spotsBtnText: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textSecondary },
-  spotsBtnTextActive: { color: '#fff' },
+  stepperBtn: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary + '10',
+  },
+  stepperValue: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: FontSize.xl,
+    fontWeight: '800',
+    color: Colors.text,
+  },
   textArea: {
     borderWidth: 1.5,
     borderColor: Colors.border,

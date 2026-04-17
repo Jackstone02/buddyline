@@ -42,7 +42,7 @@ export default function InstructorTabs() {
       <Tab.Screen
         name="Find"
         component={FindScreen}
-        initialParams={{ defaultMode: 'buddy', showToggle: false }}
+        initialParams={{ defaultMode: 'buddy', showToggle: true }}
         options={{ title: 'Find' }}
       />
       <Tab.Screen name="Schedule" component={AvailabilityScreen} options={{ title: 'Schedule' }} />

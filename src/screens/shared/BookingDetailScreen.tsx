@@ -17,6 +17,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import AppModal from '../../components/AppModal';
 import { useAppModal } from '../../hooks/useAppModal';
+import { formatTimeRange } from '../../utils/format';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type RouteParams = RouteProp<RootStackParamList, 'BookingDetail'>;
@@ -35,6 +36,7 @@ export default function BookingDetailScreen() {
   const { profile } = useAuthStore();
 
   const [booking, setBooking] = useState<any>(null);
+  const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const { visible, isLoading, config, showModal, handleConfirm, handleCancel: modalCancel } = useAppModal();
@@ -43,12 +45,28 @@ export default function BookingDetailScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('bookings')
-      .select('*, instructor:profiles!instructor_id(id, display_name, city_region, bio), lesson_type:lesson_types(*)')
+      .select('*, instructor:profiles!instructor_id(id, display_name, city_region, bio), lesson_type:lesson_types(*), slot:availability_slots!availability_slot_id(start_time, end_time)')
       .eq('id', bookingId)
       .single();
     setBooking(data);
     setLoading(false);
   }, [bookingId]);
+
+  const fetchParticipants = useCallback(async (availabilitySlotId: string, lessonTypeId: string) => {
+    const { data } = await supabase
+      .from('bookings')
+      .select('customer:profiles!customer_id(id, display_name)')
+      .eq('availability_slot_id', availabilitySlotId)
+      .eq('lesson_type_id', lessonTypeId)
+      .in('status', ['pending', 'confirmed']);
+    setParticipants(data || []);
+  }, []);
+
+  useEffect(() => {
+    if (booking?.availability_slot_id && booking?.lesson_type_id) {
+      fetchParticipants(booking.availability_slot_id, booking.lesson_type_id);
+    }
+  }, [booking?.availability_slot_id, booking?.lesson_type_id]);
 
   useEffect(() => {
     fetchBooking();
@@ -130,7 +148,11 @@ export default function BookingDetailScreen() {
           </View>
           <View style={styles.row}>
             <Ionicons name="time-outline" size={16} color={Colors.textMuted} />
-            <Text style={styles.rowText}>{booking.start_time}</Text>
+            <Text style={styles.rowText}>
+              {booking.slot
+                ? formatTimeRange(booking.slot.start_time, booking.slot.end_time)
+                : booking.start_time}
+            </Text>
           </View>
           <View style={styles.row}>
             <Ionicons name="water-outline" size={16} color={Colors.textMuted} />
@@ -143,7 +165,7 @@ export default function BookingDetailScreen() {
           {booking.lesson_type?.price != null && (
             <View style={styles.row}>
               <Ionicons name="cash-outline" size={16} color={Colors.textMuted} />
-              <Text style={styles.rowText}>${booking.lesson_type.price}</Text>
+              <Text style={styles.rowText}>₱{booking.lesson_type.price}</Text>
             </View>
           )}
           {booking.notes && (
@@ -153,6 +175,24 @@ export default function BookingDetailScreen() {
             </View>
           )}
         </View>
+
+        {/* Session participants */}
+        {(booking.lesson_type?.max_participants ?? 1) > 1 && participants.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>
+              Session Participants ({participants.length}/{booking.lesson_type?.max_participants})
+            </Text>
+            {participants.map((p: any, i: number) => (
+              <View key={p.customer?.id ?? i} style={styles.row}>
+                <Ionicons name="person-circle-outline" size={18} color={Colors.textMuted} />
+                <Text style={styles.rowText}>
+                  {p.customer?.display_name ?? 'User'}
+                  {p.customer?.id === profile?.id ? ' (you)' : ''}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Instructor card */}
         {booking.instructor && (

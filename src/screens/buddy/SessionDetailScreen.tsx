@@ -91,7 +91,11 @@ export default function SessionDetailScreen({ navigation, route }: Props) {
   }, [fetchSession, sessionId]);
 
   const handleJoin = async () => {
-    if (!profile) return;
+    if (!profile || !session) return;
+    if (members.length >= session.spots_needed) {
+      showModal({ type: 'info', title: 'Session Full', message: 'This dive session is already full.' });
+      return;
+    }
     setActionLoading(true);
     const { error } = await supabase.from('dive_session_members').insert({
       session_id: sessionId,
@@ -100,6 +104,10 @@ export default function SessionDetailScreen({ navigation, route }: Props) {
     if (error) {
       showModal({ type: 'error', title: 'Error', message: 'Could not join session. Please try again.' });
     } else {
+      const newCount = members.length + 1;
+      if (newCount >= session.spots_needed) {
+        await supabase.from('dive_sessions').update({ status: 'full' }).eq('id', sessionId);
+      }
       await fetchSession();
     }
     setActionLoading(false);

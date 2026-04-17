@@ -17,6 +17,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import AppModal from '../../components/AppModal';
 import { useAppModal } from '../../hooks/useAppModal';
+import { formatTimeRange } from '../../utils/format';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type RouteParams = RouteProp<RootStackParamList, 'InstructorBookingDetail'>;
@@ -43,7 +44,7 @@ export default function InstructorBookingDetailScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('bookings')
-      .select('*, customer:profiles!customer_id(id, display_name, city_region, bio), lesson_type:lesson_types(*)')
+      .select('*, customer:profiles!customer_id(id, display_name, city_region, bio), lesson_type:lesson_types(*), slot:availability_slots!availability_slot_id(start_time, end_time)')
       .eq('id', bookingId)
       .single();
     setBooking(data);
@@ -131,7 +132,12 @@ export default function InstructorBookingDetailScreen() {
           </View>
           <View style={styles.row}>
             <Ionicons name="time-outline" size={16} color={Colors.textMuted} />
-            <Text style={styles.rowText}>{booking.start_time} · {booking.lesson_type?.duration_minutes} min</Text>
+            <Text style={styles.rowText}>
+              {booking.slot
+                ? formatTimeRange(booking.slot.start_time, booking.slot.end_time)
+                : booking.start_time}
+              {' · '}{booking.lesson_type?.duration_minutes} min
+            </Text>
           </View>
           <View style={styles.row}>
             <Ionicons name="water-outline" size={16} color={Colors.textMuted} />

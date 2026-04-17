@@ -16,6 +16,17 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import CertBadge from '../../components/CertBadge';
 import UserAvatar from '../../components/UserAvatar';
+import { formatScheduledAt } from '../../utils/format';
+
+const DIVE_TYPE_LABELS: Record<string, string> = {
+  fun_dive: 'Fun Dive',
+  line_training: 'Line Training',
+  pool: 'Pool',
+  dynamic: 'Dynamic',
+  static: 'Static',
+  spearfishing: 'Spearfishing',
+  other: 'Other',
+};
 type Props = NativeStackScreenProps<RootStackParamList, 'BuddyProfile'>;
 
 export default function BuddyProfileScreen({ navigation, route }: Props) {
@@ -23,6 +34,7 @@ export default function BuddyProfileScreen({ navigation, route }: Props) {
   const { profile: myProfile } = useAuthStore();
   const [buddy, setBuddy] = useState<any>(null);
   const [certProfile, setCertProfile] = useState<any>(null);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,6 +48,38 @@ export default function BuddyProfileScreen({ navigation, route }: Props) {
     ]);
     setBuddy(p);
     setCertProfile(c);
+
+    // Fetch this buddy's upcoming open sessions
+    const { data: sessData } = await supabase
+      .from('dive_sessions')
+      .select('*')
+      .eq('creator_id', buddyId)
+      .eq('status', 'open')
+      .gte('scheduled_at', new Date().toISOString())
+      .order('scheduled_at')
+      .limit(5);
+
+    if (sessData && sessData.length > 0) {
+      const sessionIds = sessData.map((s: any) => s.id);
+      const { data: memberData } = await supabase
+        .from('dive_session_members')
+        .select('session_id')
+        .in('session_id', sessionIds);
+
+      const countBySession: Record<string, number> = {};
+      (memberData || []).forEach((m: any) => {
+        countBySession[m.session_id] = (countBySession[m.session_id] || 0) + 1;
+      });
+
+      setSessions(
+        sessData.map((s: any) => ({
+          ...s,
+          member_count: countBySession[s.id] || 0,
+          spots_left: s.spots_needed - (countBySession[s.id] || 0),
+        }))
+      );
+    }
+
     setLoading(false);
   };
 
@@ -137,6 +181,49 @@ export default function BuddyProfileScreen({ navigation, route }: Props) {
             <Text style={styles.bioText}>{buddy.bio}</Text>
           </View>
         ) : null}
+
+        {/* Open Sessions */}
+        {sessions.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Open Sessions</Text>
+            {sessions.map((s) => {
+              const isFull = s.spots_left <= 0;
+              return (
+                <TouchableOpacity
+                  key={s.id}
+                  style={styles.sessionCard}
+                  onPress={() => navigation.navigate('SessionDetail', { sessionId: s.id })}
+                  activeOpacity={0.82}
+                >
+                  <View style={styles.sessionLeft}>
+                    <Text style={styles.sessionType}>
+                      {DIVE_TYPE_LABELS[s.dive_type] ?? 'Dive Session'}
+                    </Text>
+                    <Text style={styles.sessionDate}>{formatScheduledAt(s.scheduled_at)}</Text>
+                    <Text style={styles.sessionLoc} numberOfLines={1}>
+                      <Ionicons name="location-outline" size={11} color={Colors.textMuted} />
+                      {' '}{s.location_name}
+                    </Text>
+                  </View>
+                  <View style={styles.sessionRight}>
+                    {isFull ? (
+                      <View style={[styles.spotsBadge, styles.spotsBadgeFull]}>
+                        <Text style={styles.spotsBadgeTextFull}>Full</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.spotsBadge}>
+                        <Text style={styles.spotsBadgeText}>
+                          {s.spots_left} spot{s.spots_left !== 1 ? 's' : ''} left
+                        </Text>
+                      </View>
+                    )}
+                    <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} style={{ marginTop: 4 }} />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         <View style={styles.disclaimer}>
           <Text style={styles.disclaimerText}>
@@ -257,6 +344,32 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginBottom: Spacing.sm },
   certRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   bioText: { fontSize: FontSize.md, color: Colors.textSecondary, lineHeight: 22 },
+  sessionCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  sessionLeft: { flex: 1, gap: 3 },
+  sessionType: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
+  sessionDate: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  sessionLoc: { fontSize: FontSize.xs, color: Colors.textMuted },
+  sessionRight: { alignItems: 'flex-end', gap: 4 },
+  spotsBadge: {
+    backgroundColor: Colors.primary + '18',
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  spotsBadgeFull: { backgroundColor: Colors.border },
+  spotsBadgeText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  spotsBadgeTextFull: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
   disclaimer: {
     margin: Spacing.lg,
     padding: Spacing.md,

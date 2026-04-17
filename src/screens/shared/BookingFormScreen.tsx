@@ -18,6 +18,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import AppModal from '../../components/AppModal';
 import { useAppModal } from '../../hooks/useAppModal';
+import { formatTimeRange } from '../../utils/format';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type RouteParams = RouteProp<RootStackParamList, 'BookingForm'>;
@@ -55,8 +56,32 @@ export default function BookingFormScreen() {
         .order('start_time'),
     ]);
 
+    // Fetch existing booking counts per slot for this lesson type
+    const slotIds = (availSlots || []).map((s: any) => s.id);
+    let bookingCounts: Record<string, number> = {};
+    if (slotIds.length > 0) {
+      const { data: existing } = await supabase
+        .from('bookings')
+        .select('availability_slot_id')
+        .in('availability_slot_id', slotIds)
+        .eq('lesson_type_id', lessonTypeId)
+        .in('status', ['pending', 'confirmed']);
+      (existing || []).forEach((b: any) => {
+        bookingCounts[b.availability_slot_id] = (bookingCounts[b.availability_slot_id] || 0) + 1;
+      });
+    }
+
+    const maxParticipants = lt?.max_participants || 1;
+    const enrichedSlots = (availSlots || [])
+      .map((s: any) => ({
+        ...s,
+        booked_count: bookingCounts[s.id] || 0,
+        spots_left: maxParticipants - (bookingCounts[s.id] || 0),
+      }))
+      .filter((s: any) => s.spots_left > 0);
+
     setLessonType(lt);
-    setSlots(availSlots || []);
+    setSlots(enrichedSlots);
     setLoading(false);
   };
 
@@ -92,8 +117,10 @@ export default function BookingFormScreen() {
       return;
     }
 
-    // Mark slot as booked
-    await supabase.from('availability_slots').update({ is_booked: true }).eq('id', selectedSlot);
+    // Mark slot as fully booked only when max participants is reached
+    if ((slot.booked_count || 0) + 1 >= (lessonType?.max_participants || 1)) {
+      await supabase.from('availability_slots').update({ is_booked: true }).eq('id', selectedSlot);
+    }
 
     setSubmitting(false);
     navigation.replace('BookingConfirmation', { bookingId: data.id });
@@ -103,6 +130,7 @@ export default function BookingFormScreen() {
     const d = new Date(dateStr + 'T00:00:00');
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
+
 
   // Group slots by date
   const slotsByDate: Record<string, any[]> = {};
@@ -150,7 +178,7 @@ export default function BookingFormScreen() {
                 <Text style={styles.metaPillText}>{lessonType.session_format}</Text>
               </View>
             </View>
-            <Text style={styles.price}>${lessonType.price}</Text>
+            <Text style={styles.price}>₱{lessonType.price}</Text>
           </View>
         )}
 
@@ -173,8 +201,13 @@ export default function BookingFormScreen() {
                     onPress={() => setSelectedSlot(slot.id)}
                   >
                     <Text style={[styles.slotTime, selectedSlot === slot.id && styles.slotTimeActive]}>
-                      {slot.start_time}
+                      {formatTimeRange(slot.start_time, slot.end_time)}
                     </Text>
+                    {(lessonType?.max_participants ?? 1) > 1 && (
+                      <Text style={[styles.slotSpots, selectedSlot === slot.id && styles.slotSpotsActive]}>
+                        {slot.spots_left} spot{slot.spots_left !== 1 ? 's' : ''} left
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -276,6 +309,8 @@ const styles = StyleSheet.create({
   slotChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary },
   slotTime: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text },
   slotTimeActive: { color: '#fff' },
+  slotSpots: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
+  slotSpotsActive: { color: 'rgba(255,255,255,0.75)' },
   notesInput: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.md,

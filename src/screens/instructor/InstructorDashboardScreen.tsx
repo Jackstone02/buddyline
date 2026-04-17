@@ -163,6 +163,22 @@ export default function InstructorDashboardScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Post a Dive */}
+        <TouchableOpacity
+          style={styles.postDiveCard}
+          onPress={() => navigation.navigate('CreateSession')}
+          activeOpacity={0.85}
+        >
+          <View style={styles.postDiveIcon}>
+            <Ionicons name="water-outline" size={22} color="#fff" />
+          </View>
+          <View style={styles.postDiveInfo}>
+            <Text style={styles.postDiveTitle}>Post a Dive</Text>
+            <Text style={styles.postDiveDesc}>Create an open dive session for certified divers to join</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+        </TouchableOpacity>
+
         {/* Stats row */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { borderColor: Colors.warning + '60' }]}>
@@ -293,6 +309,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2, shadowRadius: 2, elevation: 2,
   },
   toggleKnobOn: { alignSelf: 'flex-end' },
+  postDiveCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primary + '40',
+    gap: Spacing.md,
+  },
+  postDiveIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  postDiveInfo: { flex: 1 },
+  postDiveTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
+  postDiveDesc: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2, lineHeight: 16 },
   statsRow: { flexDirection: 'row', gap: Spacing.sm },
   statCard: {
     flex: 1,

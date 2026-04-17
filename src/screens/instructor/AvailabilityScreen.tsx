@@ -7,6 +7,7 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,8 +52,8 @@ export default function AvailabilityScreen() {
   const navigation = useNavigation<Nav>();
   const { profile } = useAuthStore();
 
-  // View toggle: calendar vs requests
-  const [screenView, setScreenView] = useState<'calendar' | 'requests'>('calendar');
+  // View toggle: calendar vs requests vs lessons
+  const [screenView, setScreenView] = useState<'calendar' | 'requests' | 'lessons'>('calendar');
 
   // Calendar state
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
@@ -64,6 +65,18 @@ export default function AvailabilityScreen() {
   const [requestTab, setRequestTab] = useState<BookingStatus>('pending');
   const [requests, setRequests] = useState<any[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
+
+  // Lesson types state
+  const [lessonTypes, setLessonTypes] = useState<any[]>([]);
+  const [lessonsLoading, setLessonsLoading] = useState(false);
+  const [showLessonForm, setShowLessonForm] = useState(false);
+  const [ltName, setLtName] = useState('');
+  const [ltDuration, setLtDuration] = useState('60');
+  const [ltSkillLevel, setLtSkillLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
+  const [ltFormat, setLtFormat] = useState<'pool' | 'open_water' | 'theory'>('open_water');
+  const [ltPrice, setLtPrice] = useState('');
+  const [ltMaxPax, setLtMaxPax] = useState('1');
+  const [ltSaving, setLtSaving] = useState(false);
 
   const { visible, isLoading, config, showModal, handleConfirm, handleCancel } = useAppModal();
   const [showAddForm, setShowAddForm] = useState(false);
@@ -80,6 +93,7 @@ export default function AvailabilityScreen() {
 
   useEffect(() => {
     if (screenView === 'requests') fetchRequests();
+    if (screenView === 'lessons') fetchLessonTypes();
   }, [screenView, requestTab]);
 
   const fetchData = async () => {
@@ -118,6 +132,60 @@ export default function AvailabilityScreen() {
 
     setRequests(data || []);
     setRequestsLoading(false);
+  };
+
+  const fetchLessonTypes = async () => {
+    if (!profile) return;
+    setLessonsLoading(true);
+    const { data } = await supabase
+      .from('lesson_types')
+      .select('*')
+      .eq('instructor_id', profile.id)
+      .order('created_at', { ascending: true });
+    setLessonTypes(data || []);
+    setLessonsLoading(false);
+  };
+
+  const saveLessonType = async () => {
+    if (!profile || !ltName.trim()) {
+      showModal({ type: 'error', title: 'Name Required', message: 'Please enter a lesson name.' });
+      return;
+    }
+    const max = Math.max(1, parseInt(ltMaxPax) || 1);
+    setLtSaving(true);
+    const { error } = await supabase.from('lesson_types').insert({
+      instructor_id: profile.id,
+      name: ltName.trim(),
+      duration_minutes: parseInt(ltDuration) || 60,
+      skill_level: ltSkillLevel,
+      session_format: ltFormat,
+      price: parseInt(ltPrice) || 0,
+      max_participants: max,
+    });
+    setLtSaving(false);
+    if (error) {
+      showModal({ type: 'error', title: 'Error', message: 'Could not save lesson type.' });
+    } else {
+      setLtName(''); setLtDuration('60'); setLtSkillLevel('beginner');
+      setLtFormat('open_water'); setLtPrice(''); setLtMaxPax('1');
+      setShowLessonForm(false);
+      fetchLessonTypes();
+    }
+  };
+
+  const deleteLessonType = (id: string) => {
+    showModal({
+      type: 'confirm',
+      title: 'Delete Lesson',
+      message: 'Remove this lesson type? Existing bookings will not be affected.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      showCancel: true,
+      onConfirm: async () => {
+        await supabase.from('lesson_types').delete().eq('id', id);
+        setLessonTypes((prev) => prev.filter((lt) => lt.id !== id));
+      },
+    });
   };
 
   const formatRequestDate = (dateStr: string) => {
@@ -236,9 +304,166 @@ export default function AvailabilityScreen() {
             </View>
           )}
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.viewToggleBtn, screenView === 'lessons' && styles.viewToggleBtnActive]}
+          onPress={() => setScreenView('lessons')}
+        >
+          <Ionicons name="school-outline" size={15} color={screenView === 'lessons' ? '#fff' : Colors.primary} />
+          <Text style={[styles.viewToggleText, screenView === 'lessons' && styles.viewToggleTextActive]}>Lessons</Text>
+        </TouchableOpacity>
       </View>
 
-      {screenView === 'requests' ? (
+      {screenView === 'lessons' ? (
+        // ── Lessons view ─────────────────────────────────────────
+        <ScrollView contentContainerStyle={styles.inner} showsVerticalScrollIndicator={false}>
+          <View style={styles.lessonsHeader}>
+            <Text style={styles.lessonsTitle}>My Lesson Types</Text>
+            <TouchableOpacity
+              style={[styles.addSlotBtn, showLessonForm && styles.addSlotBtnCancel]}
+              onPress={() => setShowLessonForm((v) => !v)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name={showLessonForm ? 'close' : 'add'} size={14} color="#fff" />
+              <Text style={styles.addSlotBtnText}>{showLessonForm ? 'Cancel' : 'Add Lesson'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {showLessonForm && (
+            <View style={styles.lessonForm}>
+              <Text style={styles.ltLabel}>Lesson Name *</Text>
+              <TextInput
+                style={styles.ltInput}
+                value={ltName}
+                onChangeText={setLtName}
+                placeholder="e.g. Open Water Course"
+                placeholderTextColor={Colors.textMuted}
+              />
+
+              <Text style={[styles.ltLabel, { marginTop: Spacing.sm }]}>Duration</Text>
+              <View style={styles.ltChipRow}>
+                {(['30', '45', '60', '90', '120'] as const).map((d) => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.ltChip, ltDuration === d && styles.ltChipActive]}
+                    onPress={() => setLtDuration(d)}
+                  >
+                    <Text style={[styles.ltChipText, ltDuration === d && styles.ltChipTextActive]}>{d} min</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.ltLabel, { marginTop: Spacing.sm }]}>Skill Level</Text>
+              <View style={styles.ltChipRow}>
+                {(['beginner', 'intermediate', 'advanced'] as const).map((sl) => (
+                  <TouchableOpacity
+                    key={sl}
+                    style={[styles.ltChip, ltSkillLevel === sl && styles.ltChipActive]}
+                    onPress={() => setLtSkillLevel(sl)}
+                  >
+                    <Text style={[styles.ltChipText, ltSkillLevel === sl && styles.ltChipTextActive]}>{sl}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.ltLabel, { marginTop: Spacing.sm }]}>Format</Text>
+              <View style={styles.ltChipRow}>
+                {(['pool', 'open_water', 'theory'] as const).map((f) => (
+                  <TouchableOpacity
+                    key={f}
+                    style={[styles.ltChip, ltFormat === f && styles.ltChipActive]}
+                    onPress={() => setLtFormat(f)}
+                  >
+                    <Text style={[styles.ltChipText, ltFormat === f && styles.ltChipTextActive]}>{f.replace('_', ' ')}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.ltRow}>
+                <View style={styles.ltHalf}>
+                  <Text style={[styles.ltLabel, { marginTop: Spacing.sm }]}>Price (₱)</Text>
+                  <TextInput
+                    style={styles.ltInput}
+                    value={ltPrice}
+                    onChangeText={setLtPrice}
+                    placeholder="0"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="number-pad"
+                  />
+                </View>
+                <View style={styles.ltHalf}>
+                  <Text style={[styles.ltLabel, { marginTop: Spacing.sm }]}>Max Students</Text>
+                  <View style={styles.stepper}>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => setLtMaxPax((v) => String(Math.max(1, parseInt(v) - 1)))}
+                    >
+                      <Ionicons name="remove" size={18} color={Colors.primary} />
+                    </TouchableOpacity>
+                    <Text style={styles.stepperValue}>{ltMaxPax}</Text>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      onPress={() => setLtMaxPax((v) => String(parseInt(v) + 1))}
+                    >
+                      <Ionicons name="add" size={18} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.confirmBtn, ltSaving && { opacity: 0.6 }]}
+                onPress={saveLessonType}
+                disabled={ltSaving}
+                activeOpacity={0.85}
+              >
+                {ltSaving
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <><Ionicons name="checkmark-circle-outline" size={16} color="#fff" /><Text style={styles.confirmBtnText}> Save Lesson</Text></>
+                }
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {lessonsLoading ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xl }} />
+          ) : lessonTypes.length === 0 && !showLessonForm ? (
+            <View style={styles.reqEmpty}>
+              <View style={styles.reqEmptyIcon}>
+                <Ionicons name="school-outline" size={40} color={Colors.primary} />
+              </View>
+              <Text style={styles.reqEmptyText}>No lesson types yet</Text>
+              <Text style={[styles.reqMetaText, { textAlign: 'center', marginTop: 4 }]}>
+                Add a lesson type so students can discover and book you.
+              </Text>
+            </View>
+          ) : (
+            lessonTypes.map((lt) => (
+              <View key={lt.id} style={styles.ltCard}>
+                <View style={styles.ltCardBody}>
+                  <Text style={styles.ltCardName}>{lt.name}</Text>
+                  <View style={styles.ltCardMeta}>
+                    <Text style={styles.ltCardMetaText}>{lt.duration_minutes} min</Text>
+                    <Text style={styles.ltCardMetaText}>·</Text>
+                    <Text style={styles.ltCardMetaText}>{lt.skill_level}</Text>
+                    <Text style={styles.ltCardMetaText}>·</Text>
+                    <Text style={styles.ltCardMetaText}>{lt.session_format?.replace('_', ' ')}</Text>
+                  </View>
+                  <View style={styles.ltCardBottom}>
+                    <Text style={styles.ltCardPrice}>₱{lt.price}</Text>
+                    <View style={styles.ltCardPaxBadge}>
+                      <Ionicons name="people-outline" size={12} color={Colors.primary} />
+                      <Text style={styles.ltCardPaxText}>max {lt.max_participants}</Text>
+                    </View>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => deleteLessonType(lt.id)} style={styles.deleteBtn}>
+                  <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </ScrollView>
+      ) : screenView === 'requests' ? (
         // ── Requests view ─────────────────────────────────────────
         <View style={styles.requestsContainer}>
           {/* Status tabs */}
@@ -706,4 +931,80 @@ const styles = StyleSheet.create({
   emptyDay: { alignItems: 'center', paddingVertical: Spacing.lg, gap: 4 },
   emptyDayText: { color: Colors.text, fontSize: FontSize.sm, fontWeight: '600' },
   emptyDayHint: { color: Colors.textMuted, fontSize: FontSize.xs },
+
+  // Lessons view
+  lessonsHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: Spacing.md,
+  },
+  lessonsTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
+  lessonForm: {
+    backgroundColor: Colors.surfaceBlue, borderRadius: Radius.md,
+    padding: Spacing.md, marginBottom: Spacing.md,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  ltLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary, marginBottom: Spacing.xs },
+  ltInput: {
+    backgroundColor: Colors.surface, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.border,
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    fontSize: FontSize.sm, color: Colors.text,
+  },
+  ltChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  ltChip: {
+    paddingHorizontal: Spacing.md, paddingVertical: 7,
+    borderRadius: Radius.full, borderWidth: 1.5,
+    borderColor: Colors.border, backgroundColor: Colors.surface,
+  },
+  ltChipSm: {
+    width: 36, alignItems: 'center', paddingVertical: 7,
+    borderRadius: Radius.full, borderWidth: 1.5,
+    borderColor: Colors.border, backgroundColor: Colors.surface,
+  },
+  ltChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
+  ltChipText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary },
+  ltChipTextActive: { color: Colors.primary },
+  ltRow: { flexDirection: 'row', gap: Spacing.md },
+  ltHalf: { flex: 1 },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surface,
+    overflow: 'hidden',
+  },
+  stepperBtn: {
+    width: 40,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary + '10',
+  },
+  stepperValue: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: FontSize.md,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  ltCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.surface, borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.border,
+    padding: Spacing.md, marginBottom: Spacing.sm,
+  },
+  ltCardBody: { flex: 1, gap: 3 },
+  ltCardName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
+  ltCardMeta: { flexDirection: 'row', gap: 5 },
+  ltCardMetaText: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  ltCardBottom: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 2 },
+  ltCardPrice: { fontSize: FontSize.md, fontWeight: '800', color: Colors.primary },
+  ltCardPaxBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: Colors.primary + '15', borderRadius: Radius.full,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  ltCardPaxText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.primary },
 });

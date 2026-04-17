@@ -165,7 +165,7 @@ export default function InstructorProfileScreen({ navigation, route }: Props) {
                   </View>
                 </View>
                 <View style={styles.lessonCardRight}>
-                  <Text style={styles.lessonPrice}>${lt.price}</Text>
+                  <Text style={styles.lessonPrice}>₱{lt.price}</Text>
                   <TouchableOpacity
                     style={styles.bookBtn}
                     onPress={() => navigation.navigate('BookingForm', { instructorId, lessonTypeId: lt.id })}
