@@ -19,7 +19,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import UserAvatar from '../../components/UserAvatar';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type ScreenView = 'calendar' | 'requests';
+type ScreenView = 'calendar' | 'requests' | 'sessions';
 type RequestTab = 'Incoming' | 'Outgoing';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -47,6 +47,53 @@ const BOOKING_STATUS_COLORS: Record<BookingStatus, string> = {
   cancelled: Colors.error,
 };
 
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  open:      { label: 'Open',      color: Colors.success },
+  full:      { label: 'Full',      color: Colors.warning },
+  done:      { label: 'Completed', color: Colors.primary },
+  cancelled: { label: 'Cancelled', color: Colors.error },
+};
+
+function SessCard({ item, navigation }: { item: any; navigation: any }) {
+  const isPast = item.status === 'done' || item.status === 'cancelled';
+  const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.open;
+  const d = new Date(item.scheduled_at);
+  const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  return (
+    <TouchableOpacity
+      style={[styles.sessCard, isPast && styles.sessCardPast]}
+      onPress={() => navigation.navigate('SessionDetail', { sessionId: item.id })}
+      activeOpacity={0.85}
+    >
+      <View style={[styles.sessAccent, { backgroundColor: cfg.color }]} />
+      <View style={styles.sessBody}>
+        <View style={styles.sessTopRow}>
+          <Text style={[styles.sessLocation, isPast && styles.sessTextMuted]} numberOfLines={1}>
+            {item.location_name}
+          </Text>
+          <View style={[styles.sessBadge, { backgroundColor: cfg.color + '20' }]}>
+            <Text style={[styles.sessBadgeText, { color: cfg.color }]}>{cfg.label}</Text>
+          </View>
+        </View>
+        <Text style={styles.sessDate}>{dateStr} · {timeStr}</Text>
+        <View style={styles.sessMetaRow}>
+          <View style={styles.sessMeta}>
+            <Ionicons name="people-outline" size={12} color={Colors.textMuted} />
+            <Text style={styles.sessMetaText}>{item.member_count} joined</Text>
+          </View>
+          <View style={[styles.sessRoleBadge, item.role === 'creator' && styles.sessRoleBadgeCreator]}>
+            <Text style={[styles.sessRoleText, item.role === 'creator' && styles.sessRoleTextCreator]}>
+              {item.role === 'creator' ? 'Your session' : 'Joined'}
+            </Text>
+          </View>
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+    </TouchableOpacity>
+  );
+}
+
 export default function MyActivityScreen() {
   const navigation = useNavigation<Nav>();
   const { profile } = useAuthStore();
@@ -65,6 +112,11 @@ export default function MyActivityScreen() {
   const [reqLoading, setReqLoading]     = useState(false);
   const [reqRefreshing, setReqRefreshing] = useState(false);
 
+  // ── Sessions state ────────────────────────────────────────────────────
+  const [mySessions, setMySessions]     = useState<any[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsRefreshing, setSessionsRefreshing] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
       fetchBookings();
@@ -73,6 +125,7 @@ export default function MyActivityScreen() {
 
   useEffect(() => {
     if (screenView === 'requests') fetchRequests();
+    if (screenView === 'sessions') fetchMySessions();
   }, [screenView, requestTab]);
 
   // ── Fetch bookings (for calendar) ──────────────────────────────────────
@@ -109,6 +162,46 @@ export default function MyActivityScreen() {
     setRequests(data ?? []);
     setReqLoading(false);
     setReqRefreshing(false);
+  };
+
+  // ── Fetch my dive sessions (created + joined) ─────────────────────────
+  const fetchMySessions = async (isRefresh = false) => {
+    if (!profile) return;
+    if (isRefresh) setSessionsRefreshing(true);
+    else setSessionsLoading(true);
+
+    // Sessions I created
+    const { data: created } = await supabase
+      .from('dive_sessions')
+      .select('*, dive_session_members(count)')
+      .eq('creator_id', profile.id)
+      .order('scheduled_at', { ascending: false });
+
+    // Sessions I joined (not created)
+    const { data: joined } = await supabase
+      .from('dive_session_members')
+      .select('session:dive_sessions(*, dive_session_members(count))')
+      .eq('user_id', profile.id);
+
+    const createdMapped = (created || []).map((s: any) => ({
+      ...s,
+      member_count: s.dive_session_members?.[0]?.count ?? 0,
+      role: 'creator' as const,
+    }));
+
+    const joinedMapped = (joined || [])
+      .map((j: any) => j.session)
+      .filter((s: any) => s && s.creator_id !== profile.id)
+      .map((s: any) => ({
+        ...s,
+        member_count: s.dive_session_members?.[0]?.count ?? 0,
+        role: 'member' as const,
+      }));
+
+    // Merge: created first, then joined; sort each group by scheduled_at desc
+    setMySessions([...createdMapped, ...joinedMapped]);
+    if (isRefresh) setSessionsRefreshing(false);
+    else setSessionsLoading(false);
   };
 
   // ── Calendar helpers ───────────────────────────────────────────────────
@@ -178,7 +271,7 @@ export default function MyActivityScreen() {
         </SafeAreaView>
       </View>
 
-      {/* View toggle: Calendar | Requests */}
+      {/* View toggle: Calendar | Requests | Sessions */}
       <View style={styles.viewToggle}>
         <TouchableOpacity
           style={[styles.viewToggleBtn, screenView === 'calendar' && styles.viewToggleBtnActive]}
@@ -194,17 +287,70 @@ export default function MyActivityScreen() {
           activeOpacity={0.8}
         >
           <Ionicons name="people-outline" size={15} color={screenView === 'requests' ? '#fff' : Colors.primary} />
-          <Text style={[styles.viewToggleText, screenView === 'requests' && styles.viewToggleTextActive]}>Dive Requests</Text>
+          <Text style={[styles.viewToggleText, screenView === 'requests' && styles.viewToggleTextActive]}>Requests</Text>
           {pendingCount > 0 && screenView !== 'requests' && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{pendingCount}</Text>
             </View>
           )}
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.viewToggleBtn, screenView === 'sessions' && styles.viewToggleBtnActive]}
+          onPress={() => setScreenView('sessions')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="water-outline" size={15} color={screenView === 'sessions' ? '#fff' : Colors.primary} />
+          <Text style={[styles.viewToggleText, screenView === 'sessions' && styles.viewToggleTextActive]}>Dives</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* ── REQUESTS VIEW ── */}
-      {screenView === 'requests' ? (
+      {/* ── SESSIONS VIEW ── */}
+      {screenView === 'sessions' ? (
+        sessionsLoading ? (
+          <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xl }} />
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.reqList}
+            refreshControl={
+              <RefreshControl refreshing={sessionsRefreshing} onRefresh={() => fetchMySessions(true)} tintColor={Colors.primary} />
+            }
+          >
+            {mySessions.length === 0 ? (
+              <View style={styles.reqEmpty}>
+                <View style={styles.reqEmptyIcon}>
+                  <Ionicons name="water-outline" size={40} color={Colors.primary} />
+                </View>
+                <Text style={styles.reqEmptyTitle}>No dive sessions yet</Text>
+                <Text style={styles.reqEmptySub}>Sessions you create or join will appear here.</Text>
+              </View>
+            ) : (
+              <>
+                {/* Upcoming */}
+                {(() => {
+                  const upcoming = mySessions.filter((s) => s.status === 'open' || s.status === 'full');
+                  return upcoming.length > 0 ? (
+                    <>
+                      <Text style={styles.sessSectionLabel}>Upcoming ({upcoming.length})</Text>
+                      {upcoming.map((item) => <SessCard key={item.id + item.role} item={item} navigation={navigation} />)}
+                    </>
+                  ) : null;
+                })()}
+
+                {/* Past */}
+                {(() => {
+                  const past = mySessions.filter((s) => s.status === 'done' || s.status === 'cancelled');
+                  return past.length > 0 ? (
+                    <>
+                      <Text style={[styles.sessSectionLabel, { marginTop: Spacing.lg }]}>Past ({past.length})</Text>
+                      {past.map((item) => <SessCard key={item.id + item.role} item={item} navigation={navigation} />)}
+                    </>
+                  ) : null;
+                })()}
+              </>
+            )}
+          </ScrollView>
+        )
+      ) : screenView === 'requests' ? (
         <View style={styles.requestsContainer}>
           {/* Incoming / Outgoing tabs */}
           <View style={styles.reqTabBar}>
@@ -538,4 +684,35 @@ const styles = StyleSheet.create({
   statusText: { fontSize: FontSize.xs, fontWeight: '700', textTransform: 'capitalize' },
   emptyDay: { alignItems: 'center', paddingVertical: Spacing.lg, gap: 4 },
   emptyDayText: { color: Colors.textMuted, fontSize: FontSize.sm, fontWeight: '600' },
+
+  sessSectionLabel: {
+    fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: Spacing.sm,
+  },
+  // ── Sessions view ────────────────────────────────────────────────────
+  sessCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.surface, borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
+    marginBottom: Spacing.xs,
+  },
+  sessCardPast: { opacity: 0.6 },
+  sessAccent: { width: 5, alignSelf: 'stretch' },
+  sessBody: { flex: 1, paddingVertical: Spacing.md, paddingHorizontal: Spacing.sm, gap: 4 },
+  sessTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
+  sessLocation: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, flex: 1 },
+  sessTextMuted: { color: Colors.textMuted },
+  sessDate: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  sessMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+  sessMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sessMetaText: { fontSize: FontSize.xs, color: Colors.textMuted },
+  sessBadge: { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2 },
+  sessBadgeText: { fontSize: 10, fontWeight: '700' },
+  sessRoleBadge: {
+    borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2,
+    backgroundColor: Colors.primary + '12',
+  },
+  sessRoleBadgeCreator: { backgroundColor: Colors.warning + '20' },
+  sessRoleText: { fontSize: 10, fontWeight: '700', color: Colors.primary },
+  sessRoleTextCreator: { color: Colors.warning },
 });

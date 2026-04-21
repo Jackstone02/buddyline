@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,6 @@ export default function MessagingScreen({ navigation, route }: Props) {
   const { profile } = useAuthStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const flatListRef = useRef<FlatList>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -44,8 +43,7 @@ export default function MessagingScreen({ navigation, route }: Props) {
           (payload) => {
             const newMsg = payload.new as Message;
             if (newMsg.sender_id === otherUserId) {
-              setMessages((prev) => [...prev, newMsg]);
-              setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
+              setMessages((prev) => [newMsg, ...prev]);
             }
           }
         )
@@ -65,7 +63,7 @@ export default function MessagingScreen({ navigation, route }: Props) {
         `and(sender_id.eq.${profile.id},receiver_id.eq.${otherUserId}),` +
         `and(sender_id.eq.${otherUserId},receiver_id.eq.${profile.id})`
       )
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
 
     setMessages(data || []);
 
@@ -99,8 +97,7 @@ export default function MessagingScreen({ navigation, route }: Props) {
     }
 
     if (data) {
-      setMessages((prev) => [...prev, data]);
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
+      setMessages((prev) => [data, ...prev]);
     }
   };
 
@@ -144,14 +141,14 @@ export default function MessagingScreen({ navigation, route }: Props) {
         keyboardVerticalOffset={0}
       >
         <FlatList
-          ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messageList}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+          inverted
           renderItem={({ item, index }) => {
             const isMe = item.sender_id === profile?.id;
-            const prevMsg = messages[index - 1];
+            // inverted: index+1 is the chronologically older (previous) message
+            const prevMsg = messages[index + 1];
             const showAvatar = !isMe && (!prevMsg || prevMsg.sender_id !== item.sender_id);
 
             return (

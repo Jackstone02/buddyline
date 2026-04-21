@@ -52,7 +52,7 @@ export default function SessionDetailScreen({ navigation, route }: Props) {
     const [{ data: s }, { data: m }] = await Promise.all([
       supabase
         .from('dive_sessions')
-        .select('*, creator:profiles(id, display_name, avatar_url, city_region, verification_status)')
+        .select('*, creator:profiles!dive_sessions_creator_id_fkey(id, display_name, avatar_url, city_region, verification_status)')
         .eq('id', sessionId)
         .single(),
       supabase

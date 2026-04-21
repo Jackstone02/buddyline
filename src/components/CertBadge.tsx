@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors, Spacing, FontSize, Radius } from '../constants/theme';
+import { formatLabel } from '../utils/format';
 
 interface Props {
   certType: string;
@@ -10,7 +11,7 @@ interface Props {
 export default function CertBadge({ certType, isVerified }: Props) {
   return (
     <View style={[styles.badge, isVerified && styles.badgeVerified]}>
-      <Text style={[styles.text, isVerified && styles.textVerified]}>{certType}</Text>
+      <Text style={[styles.text, isVerified && styles.textVerified]}>{formatLabel(certType)}</Text>
       {isVerified && <Text style={styles.check}>✓</Text>}
     </View>
   );

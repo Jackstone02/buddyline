@@ -16,6 +16,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import CertBadge from '../../components/CertBadge';
 import UserAvatar from '../../components/UserAvatar';
+import { formatLabel } from '../../utils/format';
 type Props = NativeStackScreenProps<RootStackParamList, 'InstructorProfile'>;
 
 export default function InstructorProfileScreen({ navigation, route }: Props) {
@@ -159,9 +160,9 @@ export default function InstructorProfileScreen({ navigation, route }: Props) {
                   <View style={styles.lessonMeta}>
                     <Text style={styles.lessonMetaText}>{lt.duration_minutes} min</Text>
                     <Text style={styles.lessonMetaDot}>·</Text>
-                    <Text style={styles.lessonMetaText}>{lt.skill_level}</Text>
+                    <Text style={styles.lessonMetaText}>{formatLabel(lt.skill_level)}</Text>
                     <Text style={styles.lessonMetaDot}>·</Text>
-                    <Text style={styles.lessonMetaText}>{lt.session_format}</Text>
+                    <Text style={styles.lessonMetaText}>{formatLabel(lt.session_format)}</Text>
                   </View>
                 </View>
                 <View style={styles.lessonCardRight}>

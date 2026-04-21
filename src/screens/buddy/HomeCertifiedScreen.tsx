@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, DiveSession, DiveType } from '../../types';
+import { RootStackParamList, DiveSession, DiveType, Profile } from '../../types';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -44,35 +44,58 @@ function formatDateTime(iso: string) {
 
 export default function HomeCertifiedScreen() {
   const navigation = useNavigation<Nav>();
-  const { profile } = useAuthStore();
+  const { profile, setProfile } = useAuthStore();
   const [sessions, setSessions] = useState<(DiveSession & { member_count: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [togglingAvailability, setTogglingAvailability] = useState(false);
+
+  const toggleAvailability = async () => {
+    if (!profile) return;
+    setTogglingAvailability(true);
+    const newVal = !profile.available_to_dive;
+    const { data: updated } = await supabase
+      .from('profiles')
+      .update({ available_to_dive: newVal })
+      .eq('id', profile.id)
+      .select('*')
+      .single();
+    if (updated) setProfile(updated as Profile);
+    setTogglingAvailability(false);
+  };
 
   const fetchSessions = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
+    // Auto-close expired sessions
+    await supabase
+      .from('dive_sessions')
+      .update({ status: 'done' })
+      .in('status', ['open', 'full'])
+      .lt('scheduled_at', new Date().toISOString());
+
     const { data } = await supabase
       .from('dive_sessions')
-      .select('*, creator:profiles(id, display_name, avatar_url, verification_status), dive_session_members(count)')
-      .eq('status', 'open')
+      .select('*, creator:profiles!dive_sessions_creator_id_fkey(id, display_name, avatar_url, verification_status), dive_session_members(count)')
+      .in('status', ['open', 'full'])
       .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true })
       .limit(20);
 
     if (data) {
-      setSessions(
-        data.map((s: any) => ({
-          ...s,
-          member_count: s.dive_session_members?.[0]?.count ?? 0,
-        }))
-      );
+      const mapped = data.map((s: any) => ({
+        ...s,
+        member_count: s.dive_session_members?.[0]?.count ?? 0,
+      }));
+      const own = mapped.filter((s: any) => s.creator_id === profile?.id);
+      const others = mapped.filter((s: any) => s.creator_id !== profile?.id);
+      setSessions([...own, ...others]);
     }
 
     if (isRefresh) setRefreshing(false);
     else setLoading(false);
-  }, []);
+  }, [profile?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -112,6 +135,25 @@ export default function HomeCertifiedScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Availability toggle */}
+          <TouchableOpacity
+            style={styles.availRow}
+            onPress={toggleAvailability}
+            disabled={togglingAvailability}
+            activeOpacity={0.8}
+          >
+            {togglingAvailability ? (
+              <ActivityIndicator size="small" color="#fff" style={{ width: 32 }} />
+            ) : (
+              <View style={[styles.miniToggle, profile?.available_to_dive && styles.miniToggleOn]}>
+                <View style={[styles.miniKnob, profile?.available_to_dive && styles.miniKnobOn]} />
+              </View>
+            )}
+            <Text style={styles.availText}>
+              {profile?.available_to_dive ? 'Visible in buddy search' : 'Hidden from buddy search'}
+            </Text>
+          </TouchableOpacity>
         </SafeAreaView>
       </View>
 
@@ -152,10 +194,11 @@ export default function HomeCertifiedScreen() {
           }
           renderItem={({ item }) => {
             const left = spotsLeft(item);
-            const isFull = left === 0;
+            const isFull = item.status === 'full';
+            const isOwner = item.creator_id === profile?.id;
             return (
               <TouchableOpacity
-                style={styles.card}
+                style={[styles.card, isOwner && styles.cardOwner, isFull && !isOwner && styles.cardFull]}
                 onPress={() => navigation.navigate('SessionDetail', { sessionId: item.id })}
                 activeOpacity={0.85}
               >
@@ -164,10 +207,18 @@ export default function HomeCertifiedScreen() {
                     <Ionicons name="location-outline" size={15} color={Colors.primary} />
                     <Text style={styles.locationText} numberOfLines={1}>{item.location_name}</Text>
                   </View>
-                  <View style={[styles.spotsBadge, isFull && styles.spotsBadgeFull]}>
-                    <Text style={[styles.spotsText, isFull && styles.spotsTextFull]}>
-                      {isFull ? 'Full' : `${left} spot${left !== 1 ? 's' : ''} left`}
-                    </Text>
+                  <View style={styles.cardTopRight}>
+                    {isOwner && (
+                      <View style={styles.ownerBadge}>
+                        <Ionicons name="star" size={10} color={Colors.warning} />
+                        <Text style={styles.ownerBadgeText}>Your session</Text>
+                      </View>
+                    )}
+                    <View style={[styles.spotsBadge, isFull && styles.spotsBadgeFull]}>
+                      <Text style={[styles.spotsText, isFull && styles.spotsTextFull]}>
+                        {isFull ? 'Full' : `${left} spot${left !== 1 ? 's' : ''} left`}
+                      </Text>
+                    </View>
                   </View>
                 </View>
 
@@ -198,9 +249,9 @@ export default function HomeCertifiedScreen() {
                 <View style={styles.creatorRow}>
                   <Ionicons name="person-circle-outline" size={14} color={Colors.textMuted} />
                   <Text style={styles.creatorText}>
-                    {(item as any).creator?.display_name ?? 'Unknown'}
+                    {isOwner ? 'You' : ((item as any).creator?.display_name ?? 'Unknown')}
                   </Text>
-                  {(item as any).creator?.verification_status === 'verified' && (
+                  {!isOwner && (item as any).creator?.verification_status === 'verified' && (
                     <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
                   )}
                 </View>
@@ -222,8 +273,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.xs,
   },
+  availRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm, paddingTop: Spacing.xs,
+  },
+  miniToggle: {
+    width: 32, height: 18, borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', padding: 2,
+  },
+  miniToggleOn: { backgroundColor: Colors.primary },
+  miniKnob: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#fff' },
+  miniKnobOn: { alignSelf: 'flex-end' },
+  availText: { fontSize: 11, color: Colors.accentLight, fontWeight: '600' },
   heroTitle: { fontSize: FontSize.xxl, fontWeight: '800', color: '#fff' },
   heroSub: { fontSize: FontSize.xs, color: Colors.accentLight, marginTop: 3 },
   headerActions: { flexDirection: 'row', gap: Spacing.sm },
@@ -259,7 +322,20 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardOwner: { borderColor: Colors.warning + '60', backgroundColor: Colors.warning + '05' },
+  cardFull: { opacity: 0.6 },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  cardTopRight: { alignItems: 'flex-end', gap: 4 },
+  ownerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Colors.warning + '20',
+    borderRadius: Radius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  ownerBadgeText: { fontSize: 10, fontWeight: '700', color: Colors.warning },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
   locationText: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, flex: 1 },
   spotsBadge: {

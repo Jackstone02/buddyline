@@ -157,12 +157,6 @@ export default function ProfileScreen() {
 
         {/* Actions */}
         <View style={styles.actionsCard}>
-          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('ProfileEdit')}>
-            <Ionicons name="create-outline" size={20} color={Colors.primary} />
-            <Text style={styles.actionText}>Edit Profile</Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-          </TouchableOpacity>
-          <View style={styles.divider} />
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('RoleChange')}>
             <Ionicons name="swap-horizontal-outline" size={20} color={Colors.primary} />
             <Text style={styles.actionText}>Change Role</Text>

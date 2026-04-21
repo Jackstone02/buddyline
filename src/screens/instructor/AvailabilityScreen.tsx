@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import AppModal from '../../components/AppModal';
 import { useAppModal } from '../../hooks/useAppModal';
+import { formatLabel } from '../../utils/format';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -70,6 +71,7 @@ export default function AvailabilityScreen() {
   const [lessonTypes, setLessonTypes] = useState<any[]>([]);
   const [lessonsLoading, setLessonsLoading] = useState(false);
   const [showLessonForm, setShowLessonForm] = useState(false);
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
   const [ltName, setLtName] = useState('');
   const [ltDuration, setLtDuration] = useState('60');
   const [ltSkillLevel, setLtSkillLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
@@ -141,9 +143,27 @@ export default function AvailabilityScreen() {
       .from('lesson_types')
       .select('*')
       .eq('instructor_id', profile.id)
-      .order('created_at', { ascending: true });
+      .order('name', { ascending: true });
     setLessonTypes(data || []);
     setLessonsLoading(false);
+  };
+
+  const resetLessonForm = () => {
+    setLtName(''); setLtDuration('60'); setLtSkillLevel('beginner');
+    setLtFormat('open_water'); setLtPrice(''); setLtMaxPax('1');
+    setEditingLessonId(null);
+    setShowLessonForm(false);
+  };
+
+  const editLessonType = (lt: any) => {
+    setLtName(lt.name);
+    setLtDuration(String(lt.duration_minutes));
+    setLtSkillLevel(lt.skill_level);
+    setLtFormat(lt.session_format);
+    setLtPrice(String(lt.price));
+    setLtMaxPax(String(lt.max_participants));
+    setEditingLessonId(lt.id);
+    setShowLessonForm(true);
   };
 
   const saveLessonType = async () => {
@@ -152,23 +172,23 @@ export default function AvailabilityScreen() {
       return;
     }
     const max = Math.max(1, parseInt(ltMaxPax) || 1);
-    setLtSaving(true);
-    const { error } = await supabase.from('lesson_types').insert({
-      instructor_id: profile.id,
+    const payload = {
       name: ltName.trim(),
       duration_minutes: parseInt(ltDuration) || 60,
       skill_level: ltSkillLevel,
       session_format: ltFormat,
       price: parseInt(ltPrice) || 0,
       max_participants: max,
-    });
+    };
+    setLtSaving(true);
+    const { error } = editingLessonId
+      ? await supabase.from('lesson_types').update(payload).eq('id', editingLessonId)
+      : await supabase.from('lesson_types').insert({ ...payload, instructor_id: profile.id });
     setLtSaving(false);
     if (error) {
       showModal({ type: 'error', title: 'Error', message: 'Could not save lesson type.' });
     } else {
-      setLtName(''); setLtDuration('60'); setLtSkillLevel('beginner');
-      setLtFormat('open_water'); setLtPrice(''); setLtMaxPax('1');
-      setShowLessonForm(false);
+      resetLessonForm();
       fetchLessonTypes();
     }
   };
@@ -320,7 +340,7 @@ export default function AvailabilityScreen() {
             <Text style={styles.lessonsTitle}>My Lesson Types</Text>
             <TouchableOpacity
               style={[styles.addSlotBtn, showLessonForm && styles.addSlotBtnCancel]}
-              onPress={() => setShowLessonForm((v) => !v)}
+              onPress={() => showLessonForm ? resetLessonForm() : setShowLessonForm(true)}
               activeOpacity={0.8}
             >
               <Ionicons name={showLessonForm ? 'close' : 'add'} size={14} color="#fff" />
@@ -330,6 +350,9 @@ export default function AvailabilityScreen() {
 
           {showLessonForm && (
             <View style={styles.lessonForm}>
+              <Text style={[styles.ltLabel, { fontSize: FontSize.sm, color: Colors.text, marginBottom: Spacing.sm }]}>
+                {editingLessonId ? 'Edit Lesson' : 'New Lesson'}
+              </Text>
               <Text style={styles.ltLabel}>Lesson Name *</Text>
               <TextInput
                 style={styles.ltInput}
@@ -373,7 +396,7 @@ export default function AvailabilityScreen() {
                     style={[styles.ltChip, ltFormat === f && styles.ltChipActive]}
                     onPress={() => setLtFormat(f)}
                   >
-                    <Text style={[styles.ltChipText, ltFormat === f && styles.ltChipTextActive]}>{f.replace('_', ' ')}</Text>
+                    <Text style={[styles.ltChipText, ltFormat === f && styles.ltChipTextActive]}>{formatLabel(f)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -418,7 +441,7 @@ export default function AvailabilityScreen() {
               >
                 {ltSaving
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <><Ionicons name="checkmark-circle-outline" size={16} color="#fff" /><Text style={styles.confirmBtnText}> Save Lesson</Text></>
+                  : <><Ionicons name="checkmark-circle-outline" size={16} color="#fff" /><Text style={styles.confirmBtnText}> {editingLessonId ? 'Update Lesson' : 'Save Lesson'}</Text></>
                 }
               </TouchableOpacity>
             </View>
@@ -444,9 +467,9 @@ export default function AvailabilityScreen() {
                   <View style={styles.ltCardMeta}>
                     <Text style={styles.ltCardMetaText}>{lt.duration_minutes} min</Text>
                     <Text style={styles.ltCardMetaText}>·</Text>
-                    <Text style={styles.ltCardMetaText}>{lt.skill_level}</Text>
+                    <Text style={styles.ltCardMetaText}>{formatLabel(lt.skill_level)}</Text>
                     <Text style={styles.ltCardMetaText}>·</Text>
-                    <Text style={styles.ltCardMetaText}>{lt.session_format?.replace('_', ' ')}</Text>
+                    <Text style={styles.ltCardMetaText}>{formatLabel(lt.session_format)}</Text>
                   </View>
                   <View style={styles.ltCardBottom}>
                     <Text style={styles.ltCardPrice}>₱{lt.price}</Text>
@@ -456,6 +479,9 @@ export default function AvailabilityScreen() {
                     </View>
                   </View>
                 </View>
+                <TouchableOpacity onPress={() => editLessonType(lt)} style={styles.deleteBtn}>
+                  <Ionicons name="create-outline" size={18} color={Colors.primary} />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => deleteLessonType(lt.id)} style={styles.deleteBtn}>
                   <Ionicons name="trash-outline" size={18} color={Colors.error} />
                 </TouchableOpacity>

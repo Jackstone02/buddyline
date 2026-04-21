@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,9 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
-import * as Location from 'expo-location';
+// import MapView, { Marker } from 'react-native-maps';
+// import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -45,9 +44,8 @@ export default function FindScreen() {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('map');
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const mapRef = useRef<MapView>(null);
 
   // Buddy filters
   const [availableOnly, setAvailableOnly] = useState(false);
@@ -113,12 +111,13 @@ export default function FindScreen() {
     let query = supabase
       .from('instructor_profiles')
       .select('*, profile:profiles!id(*)')
-      .filter('profile.verification_status', 'eq', 'verified');
+      .filter('profile.verification_status', 'eq', 'verified')
+      .neq('id', profile!.id);
 
     if (search.trim()) query = query.ilike('teaching_location', `%${search.trim()}%`);
 
     const { data } = await query.order('years_teaching', { ascending: false });
-    let filtered = (data || []).filter((r: any) => r.profile?.verification_status === 'verified');
+    let filtered = (data || []).filter((r: any) => r.profile?.verification_status === 'verified' && r.id !== profile?.id);
 
     if (distanceFilter !== 'any' && userCoords) {
       filtered = filtered.filter((r: any) =>
@@ -138,15 +137,7 @@ export default function FindScreen() {
   };
 
   const handleMapLocateMe = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return;
-    const loc = await Location.getCurrentPositionAsync({});
-    mapRef.current?.animateToRegion({
-      latitude: loc.coords.latitude,
-      longitude: loc.coords.longitude,
-      latitudeDelta: 0.2,
-      longitudeDelta: 0.2,
-    });
+    // TODO: re-enable when running on native
   };
 
   const handleMarkerPress = (item: any) => {
@@ -175,16 +166,7 @@ export default function FindScreen() {
               <Text style={styles.heroSub}>{heroSub}</Text>
             </View>
             <View style={styles.heroRight}>
-              <TouchableOpacity
-                style={styles.viewToggleBtn}
-                onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
-              >
-                <Ionicons
-                  name={viewMode === 'list' ? 'map-outline' : 'list-outline'}
-                  size={20}
-                  color={Colors.accent}
-                />
-              </TouchableOpacity>
+              {/* Map toggle disabled on web */}
               <View style={styles.heroIconWrap}>
                 <Ionicons name={heroIcon as any} size={26} color={Colors.accent} />
               </View>
@@ -293,104 +275,6 @@ export default function FindScreen() {
 
       {loading ? (
         <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xl }} />
-      ) : viewMode === 'map' ? (
-        // ── Map view ──────────────────────────────────────────────
-        <View style={styles.mapContainer}>
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            initialRegion={{
-              latitude: 10.3157,
-              longitude: 123.8854,
-              latitudeDelta: 0.5,
-              longitudeDelta: 0.5,
-            }}
-            showsUserLocation
-            showsMyLocationButton={false}
-          >
-            {results.map((item) => {
-              const lat = mode === 'buddy' ? item.latitude : item.profile?.latitude;
-              const lng = mode === 'buddy' ? item.longitude : item.profile?.longitude;
-              const name = mode === 'buddy' ? item.display_name : (item.profile?.display_name ?? 'Instructor');
-              if (lat == null || lng == null) return null;
-              return (
-                <Marker
-                  key={item.id}
-                  coordinate={{ latitude: lat, longitude: lng }}
-                  onPress={() => handleMarkerPress(item)}
-                >
-                  <View style={[styles.markerBubble, selectedId === item.id && styles.markerSelected]}>
-                    <Text style={styles.markerText}>{name.split(' ')[0]}</Text>
-                  </View>
-                </Marker>
-              );
-            })}
-          </MapView>
-
-          {/* Locate me button */}
-          <TouchableOpacity style={styles.locateMeBtn} onPress={handleMapLocateMe}>
-            <Ionicons name="navigate" size={18} color={Colors.primary} />
-          </TouchableOpacity>
-
-          {/* Bottom horizontal card strip */}
-          <View style={styles.mapBottomSheet}>
-            <Text style={styles.mapBottomTitle}>
-              {results.length} {mode === 'buddy' ? 'Buddy' : 'Instructor'}{results.length !== 1 ? 's' : ''} Found
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.mapCardList}
-            >
-              {results.map((item) => {
-                const name = mode === 'buddy' ? item.display_name : (item.profile?.display_name ?? 'Instructor');
-                const sub  = mode === 'buddy' ? item.city_region : item.teaching_location;
-                const isSelected = selectedId === item.id;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[styles.mapCard, isSelected && styles.mapCardSelected]}
-                    onPress={() => {
-                      handleMarkerPress(item);
-                      const route = mode === 'buddy' ? 'BuddyProfile' : 'InstructorProfile';
-                      const param = mode === 'buddy' ? { buddyId: item.id } : { instructorId: item.id };
-                      navigation.navigate(route as any, param as any);
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    <UserAvatar
-                      avatarUrl={mode === 'buddy' ? item.avatar_url : item.profile?.avatar_url}
-                      name={name}
-                      size={40}
-                      color={isSelected ? Colors.primaryDeep : Colors.primary}
-                    />
-                    <Text style={[styles.mapCardName, isSelected && { color: Colors.primary }]} numberOfLines={1}>
-                      {name}
-                    </Text>
-                    {mode === 'buddy' ? (
-                      <View style={styles.mapCardRolePill}>
-                        <Text style={styles.mapCardRoleText}>Certified Buddy</Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.mapCardRolePill, styles.mapCardRolePillInstructor]}>
-                        <Text style={[styles.mapCardRoleText, styles.mapCardRoleTextInstructor]}>Instructor</Text>
-                      </View>
-                    )}
-                    <Text style={styles.mapCardSub} numberOfLines={1}>{sub}</Text>
-                    {mode === 'buddy' && item.available_to_dive && (
-                      <View style={styles.mapCardAvailBadge}>
-                        <Text style={styles.mapCardAvailText}>Available</Text>
-                      </View>
-                    )}
-                    {mode === 'instructor' && (
-                      <Text style={styles.mapCardMeta}>{item.years_teaching}y teaching</Text>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
       ) : (
         // ── List view ─────────────────────────────────────────────
         <FlatList
@@ -484,6 +368,12 @@ function InstructorCard({ item, navigation }: any) {
       <View style={styles.cardBody}>
         <View style={styles.cardTopRow}>
           <Text style={styles.cardName}>{name}</Text>
+          {item.profile?.available_to_dive && (
+            <View style={styles.availableBadge}>
+              <View style={styles.availableDot} />
+              <Text style={styles.availableText}>Available</Text>
+            </View>
+          )}
         </View>
         <View style={styles.instructorPill}>
           <Ionicons name="school-outline" size={10} color={Colors.purple} />

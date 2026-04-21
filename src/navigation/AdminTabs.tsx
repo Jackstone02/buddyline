@@ -21,6 +21,7 @@ export default function AdminTabs() {
           backgroundColor: Colors.surface,
           borderTopColor: Colors.border,
           borderTopWidth: 1,
+          elevation: 0,
         },
         tabBarLabelStyle: { fontSize: FontSize.xs, fontWeight: '600' },
         tabBarIcon: ({ color, size, focused }) => {
