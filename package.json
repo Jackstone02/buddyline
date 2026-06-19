@@ -6,7 +6,15 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "db:link": "supabase link --project-ref manwqkdbajvidgmtrvzy",
+    "db:new": "supabase migration new",
+    "db:push": "supabase db push",
+    "db:push:dry": "supabase db push --dry-run",
+    "db:reset": "supabase db reset",
+    "db:diff": "supabase db diff",
+    "gen:types": "supabase gen types typescript --linked --schema buddyline > src/types/database.types.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

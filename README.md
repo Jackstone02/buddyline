@@ -166,9 +166,20 @@ npx expo run:android
 
 ## Supabase Setup
 
-### Schema
+### Schema (versioned migrations)
 
-Run `schema.sql` in your Supabase SQL editor to create all tables, indexes, RLS policies, and triggers.
+The database is managed with the **Supabase CLI** — no more pasting SQL into the dashboard.
+Migrations live in [supabase/migrations/](supabase/migrations/) and are applied automatically:
+
+```bash
+npm run db:link        # one time: link to project ref manwqkdbajvidgmtrvzy
+npm run db:push:dry    # preview what will run
+npm run db:push        # apply migrations to the cloud DB (idempotent + non-destructive)
+```
+
+Make schema changes with `npm run db:new <name>` → edit the file → `npm run db:push`.
+Full guide: [docs/WORKFLOW.md](docs/WORKFLOW.md). The legacy `schema.sql` is superseded by
+[supabase/migrations/0001_initial_schema.sql](supabase/migrations/0001_initial_schema.sql).
 
 ### Required Configuration
 

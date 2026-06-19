@@ -68,10 +68,10 @@ export default function HomeCertifiedScreen() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
-    // Auto-close expired sessions
+    // Auto-close expired sessions ('completed' = valid per schema check constraint)
     await supabase
       .from('dive_sessions')
-      .update({ status: 'done' })
+      .update({ status: 'completed' })
       .in('status', ['open', 'full'])
       .lt('scheduled_at', new Date().toISOString());
 

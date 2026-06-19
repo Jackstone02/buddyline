@@ -38,6 +38,7 @@ const REQUEST_STATUS: Record<DiveRequestStatus, { label: string; color: string }
   accepted:  { label: 'Accepted',  color: Colors.success },
   declined:  { label: 'Declined',  color: Colors.error },
   cancelled: { label: 'Cancelled', color: Colors.textMuted },
+  completed: { label: 'Completed', color: Colors.primary },
 };
 
 const BOOKING_STATUS_COLORS: Record<BookingStatus, string> = {
@@ -55,7 +56,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 function SessCard({ item, navigation }: { item: any; navigation: any }) {
-  const isPast = item.status === 'done' || item.status === 'cancelled';
+  const isPast = item.status === 'completed' || item.status === 'cancelled';
   const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.open;
   const d = new Date(item.scheduled_at);
   const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -338,7 +339,7 @@ export default function MyActivityScreen() {
 
                 {/* Past */}
                 {(() => {
-                  const past = mySessions.filter((s) => s.status === 'done' || s.status === 'cancelled');
+                  const past = mySessions.filter((s) => s.status === 'completed' || s.status === 'cancelled');
                   return past.length > 0 ? (
                     <>
                       <Text style={[styles.sessSectionLabel, { marginTop: Spacing.lg }]}>Past ({past.length})</Text>

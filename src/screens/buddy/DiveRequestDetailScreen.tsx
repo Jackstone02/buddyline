@@ -32,6 +32,7 @@ const STATUS_CONFIG: Record<DiveRequestStatus, { label: string; color: string; i
   accepted:  { label: 'Accepted',  color: Colors.success,   icon: 'checkmark-circle-outline' },
   declined:  { label: 'Declined',  color: Colors.error,     icon: 'close-circle-outline' },
   cancelled: { label: 'Cancelled', color: Colors.textMuted, icon: 'ban-outline' },
+  completed: { label: 'Completed', color: Colors.primary,   icon: 'trophy-outline' },
 };
 
 export default function DiveRequestDetailScreen({ navigation, route }: Props) {

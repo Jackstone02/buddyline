@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -46,6 +46,8 @@ export default function FindScreen() {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Map is disabled on this build; ref kept for when MapView is re-enabled (see commented import).
+  const mapRef = useRef<any>(null);
 
   // Buddy filters
   const [availableOnly, setAvailableOnly] = useState(false);

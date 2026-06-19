@@ -79,11 +79,11 @@ function formatDateTime(iso: string) {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` at ${time}`;
 }
 
-// Mark expired open/full sessions as done
+// Mark expired open/full sessions as completed ('completed' = valid per schema check constraint)
 async function markExpiredSessions() {
   await supabase
     .from('dive_sessions')
-    .update({ status: 'done' })
+    .update({ status: 'completed' })
     .in('status', ['open', 'full'])
     .lt('scheduled_at', new Date().toISOString());
 }

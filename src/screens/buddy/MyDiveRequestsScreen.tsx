@@ -32,6 +32,7 @@ const STATUS_CONFIG: Record<DiveRequestStatus, { label: string; color: string }>
   accepted:  { label: 'Accepted',  color: Colors.success },
   declined:  { label: 'Declined',  color: Colors.error },
   cancelled: { label: 'Cancelled', color: Colors.textMuted },
+  completed: { label: 'Completed', color: Colors.primary },
 };
 
 const TABS = ['Incoming', 'Outgoing'] as const;
@@ -104,7 +105,7 @@ export default function MyDiveRequestsScreen() {
         onPress={() => navigation.navigate('DiveRequestDetail', { requestId: item.id })}
         activeOpacity={0.85}
       >
-        <UserAvatar uri={other?.avatar_url} name={other?.display_name} size={46} />
+        <UserAvatar avatarUrl={other?.avatar_url} name={other?.display_name} size={46} />
         <View style={styles.cardBody}>
           <Text style={styles.cardName}>{other?.display_name ?? 'Unknown'}</Text>
           <View style={styles.cardMeta}>

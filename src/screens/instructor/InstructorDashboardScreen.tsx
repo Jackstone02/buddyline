@@ -10,15 +10,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../types';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { RootStackParamList, InstructorTabParamList } from '../../types';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Profile } from '../../types';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+// Dashboard lives inside InstructorTabs (a tab navigator) nested in the root stack,
+// so it navigates both to sibling tabs (e.g. 'Schedule') and root routes.
+type Nav = CompositeNavigationProp<
+  BottomTabNavigationProp<InstructorTabParamList>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
 
 export default function InstructorDashboardScreen() {
   const navigation = useNavigation<Nav>();
@@ -40,9 +46,11 @@ export default function InstructorDashboardScreen() {
     if (!profile) return;
     if (isRefresh) setRefreshing(true);
 
+    // Auto-close past-due sessions. Status must match the schema check
+    // constraint (open/full/cancelled/completed) — 'done' was silently rejected.
     await supabase
       .from('dive_sessions')
-      .update({ status: 'done' })
+      .update({ status: 'completed' })
       .in('status', ['open', 'full'])
       .lt('scheduled_at', new Date().toISOString());
 
@@ -171,15 +179,15 @@ export default function InstructorDashboardScreen() {
       >
         {/* Stats */}
         <View style={styles.statsRow}>
-          <TouchableOpacity style={[styles.statCard, { borderColor: Colors.warning + '50' }]} onPress={() => navigation.navigate('MyActivity')} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.statCard, { borderColor: Colors.warning + '50' }]} onPress={() => navigation.navigate('Schedule')} activeOpacity={0.8}>
             <Text style={[styles.statNum, { color: Colors.warning }]}>{pendingCount}</Text>
             <Text style={styles.statLabel}>Pending</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.statCard, { borderColor: Colors.primary + '50' }]} onPress={() => navigation.navigate('MyActivity')} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.statCard, { borderColor: Colors.primary + '50' }]} onPress={() => navigation.navigate('Schedule')} activeOpacity={0.8}>
             <Text style={[styles.statNum, { color: Colors.primary }]}>{upcomingCount}</Text>
             <Text style={styles.statLabel}>Upcoming</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.statCard, { borderColor: Colors.success + '50' }]} onPress={() => navigation.navigate('MyActivity')} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.statCard, { borderColor: Colors.success + '50' }]} onPress={() => navigation.navigate('Schedule')} activeOpacity={0.8}>
             <Text style={[styles.statNum, { color: Colors.success }]}>{completedCount}</Text>
             <Text style={styles.statLabel}>Completed</Text>
           </TouchableOpacity>

@@ -42,3 +42,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Supabase CLI (keep config.toml, migrations/, seed.sql tracked)
+supabase/.temp/
+supabase/.branches/
+supabase/.env
