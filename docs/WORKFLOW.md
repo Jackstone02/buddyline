@@ -151,6 +151,103 @@ EAS Workflows is the Expo-native way to do it — no separate CI server needed.
 
 ---
 
+## Part C — Auth config & email templates (version-controlled)
+
+Branded email templates and auth settings live in the repo and deploy to the cloud project with
+one command — **no more pasting HTML or toggling settings in the dashboard**.
+
+### Email templates
+- Source files: [supabase/templates/confirmation.html](../supabase/templates/confirmation.html)
+  (signup confirmation) and [supabase/templates/recovery.html](../supabase/templates/recovery.html)
+  (password reset). Both use the Supabase `{{ .ConfirmationURL }}` variable.
+- Wired in [supabase/config.toml](../supabase/config.toml) under `[auth.email.template.confirmation]`
+  and `[auth.email.template.recovery]` (subject + `content_path`).
+- Edit the HTML in `supabase/templates/`, commit, then push (below). The root
+  `email-confirmation-template.html` / `email-reset-password-template.html` are the old
+  copy-paste copies and are now **superseded** by these.
+
+### Deploying config + templates
+```
+supabase config push        # pushes config.toml (auth settings + email templates) to the linked project
+```
+
+> ⚠️ **`config push` pushes the WHOLE `[auth]` section, not just templates** (and has no
+> `--dry-run`). Before running it, make sure `config.toml` matches your intended production
+> state — especially:
+> - `enable_confirmations` (email confirmation ON/OFF)
+> - `site_url` and `additional_redirect_urls`
+> - the `[auth.external.google]` / `[auth.external.apple]` `enabled` flags
+>
+> If a provider is enabled in the dashboard but `enabled = false` here, pushing will **disable
+> it**. Review first. OAuth client secrets are still set via env vars / dashboard, never committed.
+
+### Auth setup checklist (one-time, per environment)
+What can be codified vs. what stays manual:
+
+| Setting | Managed by | Notes |
+|---|---|---|
+| Email templates (confirm/recovery) | ✅ `config.toml` + `config push` | done |
+| Email confirmation on/off, password rules | ✅ `config.toml` + `config push` | review before push |
+| Site URL & redirect allow-list | ✅ `config.toml` + `config push` | keep deep links in sync |
+| Google / Apple **enabled** flag | ✅ `config.toml` + `config push` | secrets stay in dashboard/env |
+| Google / Apple **client secrets** | ❌ Dashboard / env vars | never commit secrets |
+| Exposed schemas (`buddyline`) | ❌ Dashboard (API settings) | or via `config.toml` `[api].schemas` on push |
+| Storage buckets & policies | ❌ Dashboard | `avatars`, `cert-cards`, `credentials`, `buddyline` |
+
+---
+
+## Part D — Enabling Google & Apple sign-in
+
+The app code is complete; these are **dashboard-only** steps. Buddyline uses Supabase's OAuth
+flow, so credentials live in the Supabase dashboard (not the repo). Reference values:
+
+| Thing | Value |
+|---|---|
+| Supabase OAuth callback | `https://manwqkdbajvidgmtrvzy.supabase.co/auth/v1/callback` |
+| App redirect scheme | `com.buddyline.app://auth/callback` (also allow `buddyline://`) |
+| iOS / Android bundle id | `com.buddyline.app` |
+| Google Cloud project | `buddyline` (project #279875257598) |
+
+### Google
+1. **Google Cloud Console** (project *Buddyline*) → APIs & Services → **OAuth consent screen**:
+   External, app name "Buddyline", support email, add scopes `email` + `profile`. Add yourself as
+   a test user (or publish).
+2. APIs & Services → **Credentials → Create credentials → OAuth client ID** →
+   Application type: **Web application** (this is the type Supabase uses — *not* Android/iOS).
+   - Name: e.g. "Buddyline Supabase"
+   - **Authorized redirect URIs:** `https://manwqkdbajvidgmtrvzy.supabase.co/auth/v1/callback`
+   - Create, then copy the **Client ID** and **Client secret**.
+3. **Supabase dashboard** → Authentication → **Providers → Google** → enable → paste the Client ID
+   and Client secret → Save.
+4. Supabase → Authentication → **URL Configuration** → add `com.buddyline.app://auth/callback`
+   (and `buddyline://`) to the redirect allow-list.
+5. (Optional, keep config in sync) set `[auth.external.google] enabled = true` in
+   [config.toml](../supabase/config.toml) — secret stays in the dashboard, not the file.
+6. Test on a device: tap "Continue with Google".
+
+### Apple (needs a paid Apple Developer account; iOS/TestFlight only)
+The app uses the **native** flow (`expo-apple-authentication` → `signInWithIdToken`), which needs
+only the App ID + the bundle id in Supabase. A Service ID and `.p8` key are **only** required for
+the web/OAuth redirect flow (web or Android) — skip them for this iOS-native app.
+
+1. **Apple Developer** → Certificates, Identifiers & Profiles → Identifiers:
+   - App ID `com.buddyline.app` → enable the **Sign In with Apple** capability → Save.
+2. **Supabase dashboard** → Authentication → **Providers → Apple** → Enable:
+   - **Client IDs:** add `com.buddyline.app` (this is all the native flow needs).
+   - Leave the Secret / Service ID / Key fields **blank**. → Save.
+3. (Optional) set `[auth.external.apple] enabled = true` in config.toml.
+4. Test on a **real iOS device / TestFlight** (not Expo Go, not Android).
+
+> Only if you later add Apple sign-in on **web or Android**: create a Services ID
+> (e.g. `com.buddyline.signin`) with return URL
+> `https://manwqkdbajvidgmtrvzy.supabase.co/auth/v1/callback`, a Sign in with Apple `.p8` key,
+> and fill the Secret fields in Supabase (Team ID `7D6DAPU3H2`, Key ID, Service ID, key).
+
+> After enabling, the social buttons work with no code changes — including the display-name
+> capture added in ROADMAP 1.4 (Apple `fullName` + Google `user_metadata`).
+
+---
+
 ## Environment variables
 The app reads these at runtime (set in `.env`, gitignored):
 ```

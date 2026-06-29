@@ -110,14 +110,18 @@ SplashScreen
 
 ### MVP (in active use)
 `profiles`, `certified_profiles`, `instructor_profiles`, `lesson_types`, `availability_slots`,
-`bookings`, `messages`, `reports`, `blocks`, `push_tokens`, `dive_sessions`,
+`bookings`, `messages`, `reports`, `blocks`, `push_tokens`, `dive_requests`, `dive_sessions`,
 `dive_session_members`.
 
+Two **distinct** buddy features (both live, not redundant):
+- **`dive_requests`** — targeted 1:1 request ("dive with this specific person"), created from a
+  buddy's profile.
+- **`dive_sessions`** (+ `dive_session_members`) — open dive anyone can join, posted to the feed.
+
 ### V2 stubs (schema ready, no UI yet)
-`dive_requests` (legacy buddy requests — superseded by `dive_sessions`), `dive_logs`,
-`sos_sessions` / `sos_watchers`, `group_dives` / `group_dive_members`, `ratings`, `dive_shops`,
-and the marketplace tables (`marketplace_shops`, `marketplace_listings`, `marketplace_orders`,
-`marketplace_reviews`).
+`dive_logs`, `sos_sessions` / `sos_watchers`, `group_dives` / `group_dive_members`, `ratings`,
+`dive_shops`, and the marketplace tables (`marketplace_shops`, `marketplace_listings`,
+`marketplace_orders`, `marketplace_reviews`).
 
 **Conventions**
 - Money stored as integer **cents** (e.g. `price_cents`) to avoid float rounding.
@@ -126,9 +130,9 @@ and the marketplace tables (`marketplace_shops`, `marketplace_listings`, `market
   migration). Realtime is enabled for `messages`, `bookings`, `sos_sessions`, `dive_sessions`,
   `dive_session_members`.
 
-> ⚠️ Known cleanup item: the legacy person-to-person `dive_requests` model coexists with the
-> newer open `dive_sessions` model. Consolidating them is tracked as a future refactor in
-> [UPDATES.md](UPDATES.md).
+> Note: `dive_requests` and `dive_sessions` are intentionally separate (targeted vs. open). The
+> only related cleanup is deleting the orphaned `MyDiveRequestsScreen.tsx` (superseded by
+> `MyActivityScreen`) — see [ROADMAP.md](ROADMAP.md) item 2.1.
 
 ### Storage buckets
 `buddyline` bucket with folders: `avatars/`, `certs/`, `credentials/`, `marketplace/`,

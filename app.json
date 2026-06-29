@@ -7,9 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/buddyline-2.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0369A1"
+      "backgroundColor": "#FFFFFF"
     },
     "scheme": [
       "buddyline",
@@ -62,7 +62,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "sivmbewtkqlvcbilgyjw.supabase.co",
+              "host": "manwqkdbajvidgmtrvzy.supabase.co",
               "pathPrefix": "/auth/v1/callback"
             }
           ],
@@ -74,7 +74,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/buddyline-2.png"
     },
     "plugins": [
       "expo-location",

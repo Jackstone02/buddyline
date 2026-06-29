@@ -80,10 +80,23 @@ minimum_password_length = 6
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
+# NOTE: confirm this matches your dashboard. If true, users must confirm their
+# email before sign-in (the app's SignUpScreen handles both cases).
 enable_confirmations = true
 max_frequency = "1s"
 otp_length = 6
 otp_expiry = 3600
+
+# Branded email templates — version-controlled in supabase/templates/ and
+# deployed to the linked cloud project with `supabase config push`
+# (no more pasting HTML into the dashboard).
+[auth.email.template.confirmation]
+subject = "Confirm your email — Buddyline"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Reset your password — Buddyline"
+content_path = "./supabase/templates/recovery.html"
 
 # Apple Sign-In — configured in the Supabase dashboard for the cloud project.
 [auth.external.apple]

@@ -18,6 +18,7 @@ import { RootStackParamList } from '../../types';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 import { signInWithGoogle } from '../../lib/googleAuth';
+import { formatAppleName, setDisplayNameIfEmpty } from '../../lib/profile';
 import { useAuthStore } from '../../store/authStore';
 import AppModal from '../../components/AppModal';
 import { useAppModal } from '../../hooks/useAppModal';
@@ -103,6 +104,8 @@ export default function SignUpScreen({ navigation }: Props) {
       }
 
       setSession(data.session);
+      // Apple returns the name only on first sign-in — capture it if we have it.
+      await setDisplayNameIfEmpty(data.session.user.id, formatAppleName(credential.fullName));
       await routeAfterSocialAuth(data.session.user.id);
     } catch (e: any) {
       if (e?.code !== 'ERR_CANCELED') {
@@ -144,12 +147,15 @@ export default function SignUpScreen({ navigation }: Props) {
 
     setLoading(false);
 
+    // Branch on whether signUp returned a session:
+    //   - session present  => email confirmation is OFF (auto-confirmed) -> onboard now
+    //   - session null     => email confirmation is ON  -> user must confirm via email first
+    // The live project currently has confirmation ON (mailer_autoconfirm = false),
+    // so the `else` branch is what runs today.
     if (data.session) {
-      // Email confirmation is OFF — go straight to onboarding
       setSession(data.session);
       navigation.replace('SocialOnboarding');
     } else {
-      // Email confirmation is ON — user must confirm before signing in
       showModal({
         type: 'success',
         title: 'Check Your Email',

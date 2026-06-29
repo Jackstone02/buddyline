@@ -4,6 +4,85 @@ A running log of notable changes to the project. Newest entries on top.
 
 ---
 
+## 2026-06-22 — Phase 1: Social display name + push verification
+
+### 1.4 Capture display name for Google/Apple signups — **Done**
+- Added [src/lib/profile.ts](src/lib/profile.ts): `formatAppleName`, `nameFromUserMetadata`,
+  `setDisplayNameIfEmpty` (never overwrites an existing name).
+- Apple `credential.fullName` now captured at sign-in (SignIn + SignUp screens).
+- SocialOnboarding gained a required, prefilled name field (from profile for Apple, from
+  `user_metadata` for Google) — also benefits email users. Typecheck clean.
+
+### Launch prep — production reset/seed scripts — **Done (scripts) / run at launch**
+- Added `supabase/reset-production.sql` (DESTRUCTIVE: truncates all 24 `buddyline` tables +
+  clears `auth.users`, in a transaction) and `supabase/seed-production.sql` (real launch data
+  only: promote first admin + optional dive shops). Both are manual-only (outside `migrations/`,
+  not referenced by `config.toml` seed), so they never auto-run.
+- Test data stays in `supabase/seed.sql` (dev/local only). Run order at launch: backup →
+  reset-production.sql → seed-production.sql.
+
+### Branding + map + app.json fix
+- **Map view re-enabled** in FindScreen (Phase 2.3): platform-safe (native only; web bundle stays
+  intact via conditional `require`), list⇄map toggle, markers → profile, "locate me". Typecheck clean.
+- **New logos wired:** splash → `buddyline-2.png` (white bg), web favicon → `buddyline-2.png`.
+  App **icon** still pending a **square 1024×1024 opaque** source (the logos aren't square);
+  Android adaptive foreground needs a **transparent** PNG. Both flagged.
+- **Bug fix:** `app.json` Android deep-link intent filter pointed at the wrong Supabase project
+  (`sivmbewtkqlvcbilgyjw` → corrected to `manwqkdbajvidgmtrvzy`).
+- Note: `MyDiveRequestsScreen` kept (user opted not to delete the orphaned screen).
+
+### 1.3 Enable Google + Apple providers — **Done (both live)**
+- **Google:** OAuth Web client in the `buddyline` GCP project, enabled in Supabase, verified
+  `external.google = true`. Test on a dev build (not Expo Go).
+- **Apple:** App ID `com.buddyline.app` with Sign In with Apple (+ Push Notifications) capability;
+  bundle id added to Supabase Apple Client IDs. Native flow needs no Service ID/key (corrected from
+  initial guidance). Verified `external.apple = true`. Team ID `7D6DAPU3H2`. Test on a real iOS device.
+- Setup steps in `docs/WORKFLOW.md` Part D.
+
+### 1.5 Push notifications — **Corrected: already code-complete & deployed**
+- Earlier roadmap wrongly said `registerPushToken` was never called. It IS called in `App.tsx`
+  on profile load. The `send-notification` edge function is **deployed & ACTIVE** (v3) and handles
+  `messages`, `dive_requests`, `bookings` (INSERT/UPDATE).
+- Remaining is config/verification only: confirm Database Webhooks point at the function and that
+  they pass an Authorization header (function has `verify_jwt = true`); then device-test.
+
+---
+
+## 2026-06-22 — Roadmap + Version-Controlled Email Templates
+
+### Roadmap correction — buddy models are NOT redundant — **Done**
+- Verified the two buddy features are distinct & both live: `dive_requests` (targeted 1:1 from a
+  buddy's profile) vs `dive_sessions` (open join). Likewise `MyBookings` (Beginner tab, lesson
+  bookings) and `MyActivity` (Certified tab, buddy dives) are role-specific, not duplicates.
+- Corrected ROADMAP item 2.1 (was "consolidate the models") and ARCHITECTURE.md (dive_requests
+  moved from "V2 stub/legacy" to "MVP in active use").
+- Only real dead code found: `MyDiveRequestsScreen.tsx` is orphaned (no nav entry; superseded by
+  MyActivityScreen) → ROADMAP 2.1 is now "delete the orphaned screen".
+
+### Auth verification (live project) — **Done**
+- Queried the live `/auth/v1/settings`: **email confirmation is ON** (`mailer_autoconfirm = false`)
+  — README was correct; cleaned up the misleading "confirmation is OFF" comment in SignUpScreen
+  (no behavior change — the code already branches on `data.session`).
+- Found **Google & Apple providers are disabled** on the backend (`external.google/apple = false`),
+  so social sign-in currently fails despite complete app code. Added ROADMAP item 1.5 to enable
+  them. `config.toml` already matches (both `enabled = false`), so `config push` won't change them.
+
+
+### Docs — **Done**
+- Added `ROADMAP.md` — step-by-step backlog of not-yet-implemented features (auth display-name
+  capture, push wiring, email-confirmation decision, model consolidation, map re-enable, ratings,
+  dive logs, group dives, shop locator, SOS, marketplace, payments), ordered by priority.
+
+### Auth / Email templates — **Done (code) / action required (config push)**
+- Moved branded email templates into `supabase/templates/confirmation.html` and `recovery.html`
+  (superseding the root `email-*-template.html` copy-paste files).
+- Wired them in `supabase/config.toml` (`[auth.email.template.*]`).
+- Deploy with `supabase config push` — documented in `docs/WORKFLOW.md` (Part C), including the
+  caveat that `config push` pushes the whole `[auth]` section (review OAuth/confirmation flags
+  first) and an auth setup checklist of what's codifiable vs. dashboard-only.
+
+---
+
 ## 2026-06-19 — Type Safety Pass & Bug Fixes
 
 ### Tooling — **Done**

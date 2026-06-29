@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
@@ -15,6 +16,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, UserRole } from '../../types';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
+import { nameFromUserMetadata } from '../../lib/profile';
 import { useAuthStore } from '../../store/authStore';
 import AppModal from '../../components/AppModal';
 import { useAppModal } from '../../hooks/useAppModal';
@@ -50,13 +52,34 @@ const ROLES: { key: UserRole; icon: any; title: string; desc: string; color: str
 
 export default function SocialOnboardingScreen({ navigation }: Props) {
   const [selectedRole, setSelectedRole] = useState<UserRole>('beginner');
+  const [displayName, setDisplayName] = useState('');
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [tosConfirmed, setTosConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const { setProfile, clearAuth } = useAuthStore();
   const { visible, isLoading, config, showModal, handleConfirm, handleCancel } = useAppModal();
 
+  // Prefill the name: existing profile value first (e.g. Apple name captured at
+  // sign-in, or email signup), then the social provider's user_metadata (Google).
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', user.id)
+        .single();
+      const existing = prof?.display_name?.trim();
+      setDisplayName(existing || nameFromUserMetadata(user.user_metadata));
+    })();
+  }, []);
+
   const handleContinue = async () => {
+    if (!displayName.trim()) {
+      showModal({ type: 'warning', title: 'Name Required', message: 'Please enter your name or nickname.' });
+      return;
+    }
     if (!ageConfirmed) {
       showModal({ type: 'warning', title: 'Age Requirement', message: 'You must be 18 or older to use Buddyline.' });
       return;
@@ -71,7 +94,7 @@ export default function SocialOnboardingScreen({ navigation }: Props) {
     if (!user) { setLoading(false); return; }
     const { error } = await supabase
       .from('profiles')
-      .update({ role: selectedRole, age_confirmed: true, tos_accepted_at: new Date().toISOString() })
+      .update({ display_name: displayName.trim(), role: selectedRole, age_confirmed: true, tos_accepted_at: new Date().toISOString() })
       .eq('id', user.id);
     if (error) {
       showModal({ type: 'error', title: 'Error', message: 'Failed to save. Please try again.' });
@@ -111,6 +134,19 @@ export default function SocialOnboardingScreen({ navigation }: Props) {
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+
+          {/* Display name */}
+          <Text style={[styles.label, { marginTop: Spacing.lg }]}>Your Name *</Text>
+          <View style={styles.inputWrap}>
+            <Ionicons name="person-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Your name or nickname"
+              placeholderTextColor={Colors.textMuted}
+              value={displayName}
+              onChangeText={setDisplayName}
+            />
+          </View>
 
           {/* Role selector */}
           <Text style={[styles.label, { marginTop: Spacing.lg }]}>I am a...</Text>
@@ -233,6 +269,17 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: FontSize.sm, color: Colors.accentLight, marginTop: 4 },
   form: { padding: Spacing.lg, paddingTop: Spacing.xl, paddingBottom: Spacing.xxl },
   label: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text, marginBottom: Spacing.xs },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.md,
+  },
+  inputIcon: { marginRight: Spacing.sm },
+  input: { flex: 1, paddingVertical: 14, fontSize: FontSize.md, color: Colors.text },
   roleRow: { gap: Spacing.sm },
   roleCard: {
     flexDirection: 'row',

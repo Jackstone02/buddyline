@@ -19,6 +19,7 @@ import { RootStackParamList } from '../../types';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 import { signInWithGoogle } from '../../lib/googleAuth';
+import { formatAppleName, setDisplayNameIfEmpty } from '../../lib/profile';
 import { useAuthStore } from '../../store/authStore';
 import AppModal from '../../components/AppModal';
 import { useAppModal } from '../../hooks/useAppModal';
@@ -159,6 +160,8 @@ export default function SignInScreen({ navigation }: Props) {
       }
 
       setSession(data.session);
+      // Apple returns the name only on first sign-in — capture it if we have it.
+      await setDisplayNameIfEmpty(data.session.user.id, formatAppleName(credential.fullName));
       await routeAfterSignIn(data.session.user.id);
     } catch (e: any) {
       // ERR_CANCELED means user dismissed — don't show error

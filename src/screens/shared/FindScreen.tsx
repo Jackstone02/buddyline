@@ -7,10 +7,21 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
-// import MapView, { Marker } from 'react-native-maps';
-// import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// react-native-maps has no web implementation, so load it only on native.
+// This keeps the web bundle working (it was the reason the map was disabled).
+let MapView: any = null;
+let MapMarker: any = null;
+if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const Maps = require('react-native-maps');
+  MapView = Maps.default;
+  MapMarker = Maps.Marker;
+}
+const MAPS_AVAILABLE = MapView != null;
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -138,18 +149,34 @@ export default function FindScreen() {
     }
   };
 
-  const handleMapLocateMe = async () => {
-    // TODO: re-enable when running on native
+  // Coordinates differ by mode: buddies store lat/long on the row, instructors on the joined profile.
+  const getCoords = (item: any): { latitude: number | null; longitude: number | null } =>
+    mode === 'buddy'
+      ? { latitude: item.latitude, longitude: item.longitude }
+      : { latitude: item.profile?.latitude ?? null, longitude: item.profile?.longitude ?? null };
+
+  const goToProfile = (item: any) => {
+    if (mode === 'buddy') navigation.navigate('BuddyProfile', { buddyId: item.id });
+    else navigation.navigate('InstructorProfile', { instructorId: item.id });
   };
 
-  const handleMarkerPress = (item: any) => {
-    const lat = mode === 'buddy' ? item.latitude : item.profile?.latitude;
-    const lng = mode === 'buddy' ? item.longitude : item.profile?.longitude;
-    setSelectedId(item.id);
-    if (lat != null && lng != null) {
-      mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.05, longitudeDelta: 0.05 });
+  const handleMapLocateMe = async () => {
+    const coords = await getCurrentCoords();
+    if (coords) {
+      setUserCoords(coords);
+      mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.4, longitudeDelta: 0.4 });
     }
   };
+
+  // Center the map on the user, the first result with coords, or a sensible default (Cebu).
+  const mapRegion = userCoords
+    ? { ...userCoords, latitudeDelta: 0.5, longitudeDelta: 0.5 }
+    : (() => {
+        const first = results.map(getCoords).find((c) => c.latitude != null && c.longitude != null);
+        return first
+          ? { latitude: first.latitude as number, longitude: first.longitude as number, latitudeDelta: 1, longitudeDelta: 1 }
+          : { latitude: 10.3157, longitude: 123.8854, latitudeDelta: 3, longitudeDelta: 3 };
+      })();
 
   // ─── Hero title based on mode ──────────────────────────────────
   const heroTitle = mode === 'buddy' ? 'Find a Buddy' : 'Find an Instructor';
@@ -168,7 +195,15 @@ export default function FindScreen() {
               <Text style={styles.heroSub}>{heroSub}</Text>
             </View>
             <View style={styles.heroRight}>
-              {/* Map toggle disabled on web */}
+              {MAPS_AVAILABLE && (
+                <TouchableOpacity
+                  style={styles.viewToggleBtn}
+                  onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name={viewMode === 'list' ? 'map-outline' : 'list-outline'} size={20} color={Colors.accent} />
+                </TouchableOpacity>
+              )}
               <View style={styles.heroIconWrap}>
                 <Ionicons name={heroIcon as any} size={26} color={Colors.accent} />
               </View>
@@ -277,6 +312,30 @@ export default function FindScreen() {
 
       {loading ? (
         <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xl }} />
+      ) : viewMode === 'map' && MAPS_AVAILABLE ? (
+        // ── Map view (native only) ────────────────────────────────
+        <View style={styles.mapContainer}>
+          <MapView ref={mapRef} style={styles.map} initialRegion={mapRegion}>
+            {results.map((item) => {
+              const c = getCoords(item);
+              if (c.latitude == null || c.longitude == null) return null;
+              const name = mode === 'buddy' ? item.display_name : item.profile?.display_name;
+              return (
+                <MapMarker
+                  key={item.id}
+                  coordinate={{ latitude: c.latitude, longitude: c.longitude }}
+                  title={name}
+                  description={mode === 'buddy' ? 'Tap for buddy profile' : 'Tap for instructor profile'}
+                  onPress={() => setSelectedId(item.id)}
+                  onCalloutPress={() => goToProfile(item)}
+                />
+              );
+            })}
+          </MapView>
+          <TouchableOpacity style={styles.locateMeBtn} onPress={handleMapLocateMe} activeOpacity={0.85}>
+            <Ionicons name="navigate" size={20} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
       ) : (
         // ── List view ─────────────────────────────────────────────
         <FlatList
