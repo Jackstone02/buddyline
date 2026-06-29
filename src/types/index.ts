@@ -151,6 +151,18 @@ export interface DiveSessionMember {
   user?: any;
 }
 
+export interface Rating {
+  id: string;
+  reviewer_id: string;
+  reviewed_id: string;
+  booking_id: string | null;
+  score: number; // 1–5
+  comment: string | null;
+  created_at: string;
+  // joined
+  reviewer?: any;
+}
+
 // ─── Navigation Param Lists ────────────────────────────────────────────────
 
 export type RootStackParamList = {

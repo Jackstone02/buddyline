@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,7 @@ import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import AppModal from '../../components/AppModal';
+import StarRating from '../../components/StarRating';
 import { useAppModal } from '../../hooks/useAppModal';
 import { formatTimeRange } from '../../utils/format';
 
@@ -39,6 +41,10 @@ export default function BookingDetailScreen() {
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [myRating, setMyRating] = useState<any>(null);
+  const [scoreInput, setScoreInput] = useState(0);
+  const [commentInput, setCommentInput] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
   const { visible, isLoading, config, showModal, handleConfirm, handleCancel: modalCancel } = useAppModal();
 
   const fetchBooking = useCallback(async () => {
@@ -83,6 +89,42 @@ export default function BookingDetailScreen() {
 
     return () => { supabase.removeChannel(channel); };
   }, [fetchBooking, bookingId]);
+
+  // Load this customer's existing rating for a completed booking (one per booking).
+  useEffect(() => {
+    if (booking?.status === 'completed' && profile?.id && booking?.customer_id === profile.id) {
+      supabase
+        .from('ratings')
+        .select('*')
+        .eq('booking_id', bookingId)
+        .eq('reviewer_id', profile.id)
+        .maybeSingle()
+        .then(({ data }) => setMyRating(data));
+    }
+  }, [booking?.status, booking?.customer_id, profile?.id, bookingId]);
+
+  const submitRating = async () => {
+    if (!scoreInput || !profile || !booking?.instructor_id) return;
+    setSubmittingRating(true);
+    const { data, error } = await supabase
+      .from('ratings')
+      .insert({
+        reviewer_id: profile.id,
+        reviewed_id: booking.instructor_id,
+        booking_id: bookingId,
+        score: scoreInput,
+        comment: commentInput.trim() || null,
+      })
+      .select()
+      .single();
+    setSubmittingRating(false);
+    if (error) {
+      showModal({ type: 'error', title: 'Could not submit', message: error.message });
+      return;
+    }
+    setMyRating(data);
+    showModal({ type: 'success', title: 'Thank you!', message: 'Your rating has been submitted.' });
+  };
 
   const handleCancel = () => {
     showModal({
@@ -226,6 +268,42 @@ export default function BookingDetailScreen() {
           </View>
         )}
 
+        {/* Rate instructor — completed bookings, customer only */}
+        {status === 'completed' && booking.customer_id === profile?.id && booking.instructor && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>{myRating ? 'Your Rating' : 'Rate Your Instructor'}</Text>
+            {myRating ? (
+              <>
+                <StarRating value={myRating.score} size={26} />
+                {myRating.comment ? <Text style={styles.rowText}>{myRating.comment}</Text> : null}
+              </>
+            ) : (
+              <>
+                <StarRating value={scoreInput} size={34} editable onChange={setScoreInput} />
+                <TextInput
+                  style={styles.ratingInput}
+                  placeholder="Add a comment (optional)"
+                  placeholderTextColor={Colors.textMuted}
+                  value={commentInput}
+                  onChangeText={setCommentInput}
+                  multiline
+                />
+                <TouchableOpacity
+                  style={[styles.rateSubmitBtn, (!scoreInput || submittingRating) && styles.rateSubmitDisabled]}
+                  onPress={submitRating}
+                  disabled={!scoreInput || submittingRating}
+                >
+                  {submittingRating ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.rateSubmitText}>Submit Rating</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
+
         {/* Cancel */}
         {canCancel && (
           <TouchableOpacity
@@ -323,4 +401,25 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   cancelBtnText: { fontSize: FontSize.md, fontWeight: '700', color: '#EF4444' },
+  ratingInput: {
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.background,
+    padding: Spacing.md,
+    fontSize: FontSize.sm,
+    color: Colors.text,
+    minHeight: 60,
+    textAlignVertical: 'top',
+    marginTop: Spacing.sm,
+  },
+  rateSubmitBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+  },
+  rateSubmitDisabled: { opacity: 0.5 },
+  rateSubmitText: { fontSize: FontSize.md, fontWeight: '700', color: '#fff' },
 });

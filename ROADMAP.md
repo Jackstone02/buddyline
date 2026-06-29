@@ -84,8 +84,12 @@ features, then push notifications._
 
 Each has tables + RLS ready in the baseline migration; only the UI/flows are missing.
 
-- [ ] **3.1 Ratings & reviews.** `ratings` table ready (one per booking). Add post-booking/
-  post-dive rating flow + display average on buddy/instructor profiles. *(High trust value.)*
+- [x] **3.1 Ratings & reviews.** Customer rates instructor after a `completed` booking
+  ([BookingDetailScreen](src/screens/shared/BookingDetailScreen.tsx)) — one rating per booking
+  (enforced by `unique(reviewer_id, booking_id)`). Average + reviews shown on
+  [InstructorProfileScreen](src/screens/instructor/InstructorProfileScreen.tsx). New reusable
+  [StarRating](src/components/StarRating.tsx) component + `Rating` type.
+  - [ ] Future: buddy-dive ratings (would need linkage to dive_requests/sessions, not booking_id).
 - [ ] **3.2 Dive logs.** `dive_logs` table ready. Personal logbook: list + create + detail.
 - [ ] **3.3 Group dives.** `group_dives` + `group_dive_members` ready. Organize/join group dives.
 - [ ] **3.4 Dive shop locator.** `dive_shops` ready (admin-populated). Admin CRUD + user

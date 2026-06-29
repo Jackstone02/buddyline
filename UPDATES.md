@@ -21,6 +21,14 @@ A running log of notable changes to the project. Newest entries on top.
 - Test data stays in `supabase/seed.sql` (dev/local only). Run order at launch: backup →
   reset-production.sql → seed-production.sql.
 
+### 3.1 Ratings & reviews — **Done**
+- New `Rating` type + reusable `StarRating` component (display with half-stars / tappable input).
+- Customer can rate their instructor after a `completed` booking (BookingDetailScreen): star
+  picker + optional comment → `ratings` insert; shows the existing rating read-only once submitted
+  (one per booking via `unique(reviewer_id, booking_id)`).
+- InstructorProfileScreen shows the average rating in the hero + a Reviews list.
+- Verified: tsc clean; expo export bundles 1300 modules.
+
 ### Branding + map + app.json fix
 - **Map view re-enabled** in FindScreen (Phase 2.3): platform-safe (native only; web bundle stays
   intact via conditional `require`), list⇄map toggle, markers → profile, "locate me". Typecheck clean.

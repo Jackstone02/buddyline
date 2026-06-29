@@ -16,6 +16,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import CertBadge from '../../components/CertBadge';
 import UserAvatar from '../../components/UserAvatar';
+import StarRating from '../../components/StarRating';
 import { formatLabel } from '../../utils/format';
 type Props = NativeStackScreenProps<RootStackParamList, 'InstructorProfile'>;
 
@@ -24,6 +25,7 @@ export default function InstructorProfileScreen({ navigation, route }: Props) {
   const { profile: myProfile } = useAuthStore();
   const [instructor, setInstructor] = useState<any>(null);
   const [lessonTypes, setLessonTypes] = useState<any[]>([]);
+  const [ratings, setRatings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export default function InstructorProfileScreen({ navigation, route }: Props) {
   }, [instructorId]);
 
   const fetchInstructor = async () => {
-    const [{ data: instrData }, { data: ltData }] = await Promise.all([
+    const [{ data: instrData }, { data: ltData }, { data: ratingData }] = await Promise.all([
       supabase
         .from('instructor_profiles')
         .select('*, profile:profiles!id(*)')
@@ -41,9 +43,15 @@ export default function InstructorProfileScreen({ navigation, route }: Props) {
         .from('lesson_types')
         .select('*')
         .eq('instructor_id', instructorId),
+      supabase
+        .from('ratings')
+        .select('*, reviewer:profiles!reviewer_id(display_name, avatar_url)')
+        .eq('reviewed_id', instructorId)
+        .order('created_at', { ascending: false }),
     ]);
     setInstructor(instrData);
     setLessonTypes(ltData || []);
+    setRatings(ratingData || []);
     setLoading(false);
   };
 
@@ -70,6 +78,9 @@ export default function InstructorProfileScreen({ navigation, route }: Props) {
       </View>
     );
   }
+
+  const ratingCount = ratings.length;
+  const avgRating = ratingCount ? ratings.reduce((s, r) => s + (r.score || 0), 0) / ratingCount : 0;
 
   return (
     <View style={styles.container}>
@@ -101,6 +112,12 @@ export default function InstructorProfileScreen({ navigation, route }: Props) {
             <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
             <Text style={styles.locationText}>{instructor.teaching_location}</Text>
           </View>
+          {ratingCount > 0 && (
+            <View style={styles.ratingRow}>
+              <StarRating value={avgRating} size={15} />
+              <Text style={styles.ratingText}>{avgRating.toFixed(1)} ({ratingCount})</Text>
+            </View>
+          )}
         </View>
 
         {/* Stats */}
@@ -179,6 +196,22 @@ export default function InstructorProfileScreen({ navigation, route }: Props) {
           </View>
         )}
 
+        {/* Reviews */}
+        {ratingCount > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Reviews ({ratingCount})</Text>
+            {ratings.slice(0, 10).map((r) => (
+              <View key={r.id} style={styles.reviewCard}>
+                <View style={styles.reviewHead}>
+                  <Text style={styles.reviewName}>{r.reviewer?.display_name ?? 'Diver'}</Text>
+                  <StarRating value={r.score} size={12} />
+                </View>
+                {r.comment ? <Text style={styles.reviewComment}>{r.comment}</Text> : null}
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Disclaimer */}
         <View style={styles.disclaimer}>
           <Text style={styles.disclaimerText}>
@@ -249,6 +282,20 @@ const styles = StyleSheet.create({
   verifiedText: { fontSize: FontSize.sm, color: Colors.success, fontWeight: '700' },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   locationText: { fontSize: FontSize.sm, color: Colors.accentLight },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  ratingText: { fontSize: FontSize.sm, color: '#FFFFFF', fontWeight: '700' },
+  reviewCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.sm,
+    gap: 4,
+  },
+  reviewHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reviewName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
+  reviewComment: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 19 },
   statsRow: {
     flexDirection: 'row',
     backgroundColor: Colors.surface,
