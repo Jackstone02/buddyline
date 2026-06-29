@@ -21,6 +21,12 @@ A running log of notable changes to the project. Newest entries on top.
 - Test data stays in `supabase/seed.sql` (dev/local only). Run order at launch: backup →
   reset-production.sql → seed-production.sql.
 
+### Remove redundant group-dive tables — **Done**
+- `group_dives` / `group_dive_members` were unused V2 stubs, fully covered by `dive_sessions`
+  (spots_needed > 1). Dropped them via migration `0002_drop_group_dives.sql` (empty tables, no app
+  refs); applied to the linked DB (`0001`/`0002` in sync) and regenerated `database.types.ts`.
+- Dive sessions are unaffected — they use separate tables (`dive_sessions`/`dive_session_members`).
+
 ### 3.2 Dive logs — **Done**
 - New `DiveLog` type + routes (`DiveLogs`, `DiveLogForm`).
 - `DiveLogsListScreen` (logbook with dive-count + personal-best summary) and `DiveLogFormScreen`

@@ -95,10 +95,11 @@ payments) is intentionally deferred to a later release — see "Deferred" below.
   (list + dive count / personal-best summary) and [DiveLogFormScreen](src/screens/buddy/DiveLogFormScreen.tsx)
   (add/edit/delete: date, location, depth, duration, discipline, notes). Entry point: Profile →
   "My Dive Log". Uses existing `dive_logs` table + RLS.
-- [x] **3.3 Group dives — skip (already covered by dive sessions).** A dive session with
-  "Max Participants" > 1 already lets multiple people join (capacity enforced, auto-"full",
-  `dive_session_members`). The separate `group_dives` tables are a redundant invite/RSVP variant
-  the app doesn't need. No work to do.
+- [x] **3.3 Group dives — REMOVED (redundant with dive sessions).** A dive session with
+  "Max Participants" > 1 already covers group dives (capacity enforced, auto-"full",
+  `dive_session_members`). Dropped the unused `group_dives` + `group_dive_members` stub tables via
+  migration `0002_drop_group_dives.sql` (they held no data; no app code referenced them). Dive
+  sessions use entirely separate tables (`dive_sessions` / `dive_session_members`) — untouched.
 - [ ] **3.5 SOS / live location share.** `sos_sessions` + `sos_watchers` ready (realtime on).
   Share live location with watchers during a dive; watcher view. *(Safety-sensitive — design
   carefully.)*
