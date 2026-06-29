@@ -68,10 +68,9 @@ features, then push notifications._
   superseded by [MyActivityScreen](src/screens/shared/MyActivityScreen.tsx), which already shows
   both dive requests and sessions. Safe to delete (no runtime references).
 
-- [ ] **2.2 Verify certified users can see their lesson bookings.**
-  `MyActivity` (the certified "My Dives" tab) fetches `dive_requests` + `dive_sessions` but **not**
-  `bookings`. If a certified user books a lesson with an instructor, confirm it surfaces somewhere
-  in their tabs; if not, add it. *(Verify first — may already be handled.)*
+- [x] **2.2 Verify certified users can see their lesson bookings.** — **Verified: no gap.**
+  MyActivityScreen has 3 views (calendar/requests/sessions); the **calendar view fetches
+  `bookings`** for the user, so certified users see lesson bookings alongside dives. No change needed.
 
 - [ ] **2.3 Re-enable Map view.**
   `MapView` is commented out in [FindScreen](src/screens/shared/FindScreen.tsx) ("re-enable when
@@ -80,9 +79,11 @@ features, then push notifications._
 
 ---
 
-## Phase 3 — New V2 features (schema already exists, no UI)
+## Phase 3 — Core diving/booking foundation (current focus)
 
 Each has tables + RLS ready in the baseline migration; only the UI/flows are missing.
+**Focus:** finish the core diving/booking experience. Commerce (dive shops, marketplace,
+payments) is intentionally deferred to a later release — see "Deferred" below.
 
 - [x] **3.1 Ratings & reviews.** Customer rates instructor after a `completed` booking
   ([BookingDetailScreen](src/screens/shared/BookingDetailScreen.tsx)) — one rating per booking
@@ -90,23 +91,30 @@ Each has tables + RLS ready in the baseline migration; only the UI/flows are mis
   [InstructorProfileScreen](src/screens/instructor/InstructorProfileScreen.tsx). New reusable
   [StarRating](src/components/StarRating.tsx) component + `Rating` type.
   - [ ] Future: buddy-dive ratings (would need linkage to dive_requests/sessions, not booking_id).
-- [ ] **3.2 Dive logs.** `dive_logs` table ready. Personal logbook: list + create + detail.
-- [ ] **3.3 Group dives.** `group_dives` + `group_dive_members` ready. Organize/join group dives.
-- [ ] **3.4 Dive shop locator.** `dive_shops` ready (admin-populated). Admin CRUD + user
-  browse/map.
+- [x] **3.2 Dive logs.** Personal logbook: [DiveLogsListScreen](src/screens/buddy/DiveLogsListScreen.tsx)
+  (list + dive count / personal-best summary) and [DiveLogFormScreen](src/screens/buddy/DiveLogFormScreen.tsx)
+  (add/edit/delete: date, location, depth, duration, discipline, notes). Entry point: Profile →
+  "My Dive Log". Uses existing `dive_logs` table + RLS.
+- [x] **3.3 Group dives — skip (already covered by dive sessions).** A dive session with
+  "Max Participants" > 1 already lets multiple people join (capacity enforced, auto-"full",
+  `dive_session_members`). The separate `group_dives` tables are a redundant invite/RSVP variant
+  the app doesn't need. No work to do.
 - [ ] **3.5 SOS / live location share.** `sos_sessions` + `sos_watchers` ready (realtime on).
   Share live location with watchers during a dive; watcher view. *(Safety-sensitive — design
   carefully.)*
 
 ---
 
-## Phase 4 — Marketplace & payments (largest scope)
+## Deferred — Commerce (next release)
 
-- [ ] **4.1 Marketplace.** `marketplace_shops/listings/orders/reviews` ready. Seller shop setup,
-  listing creation with photo upload, browse/search, purchase flow, order tracking, seller reviews.
-- [ ] **4.2 Payments (Stripe).** Stub columns ready (`stripe_customer_id`, `payment_intent_id`,
-  `amount_paid_cents` on bookings & orders). Integrate Stripe for paid bookings and marketplace
-  orders.
+Intentionally parked to keep the focus on the diving/booking foundation. Schema + RLS already
+exist, so these can be picked up later without migrations.
+
+- [ ] **Dive shop locator.** `dive_shops` ready (admin-populated). Admin CRUD + user browse/map.
+- [ ] **Marketplace.** `marketplace_shops/listings/orders/reviews` ready. Seller shop setup,
+  listings + photos, browse/search, purchase flow, order tracking, seller reviews.
+- [ ] **Payments (Stripe).** Stub columns ready (`stripe_customer_id`, `payment_intent_id`,
+  `amount_paid_cents` on bookings & orders). For paid bookings and marketplace orders.
 
 ---
 

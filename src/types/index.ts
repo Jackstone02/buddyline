@@ -163,6 +163,23 @@ export interface Rating {
   reviewer?: any;
 }
 
+export type DiveLogDiscipline = 'pool' | 'depth' | 'dynamic' | 'static' | 'spearfishing' | 'other';
+
+export interface DiveLog {
+  id: string;
+  diver_id: string;
+  buddy_id: string | null;
+  log_date: string;
+  location_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  max_depth_m: number | null;
+  duration_min: number | null;
+  discipline: DiveLogDiscipline | null;
+  notes: string | null;
+  created_at: string;
+}
+
 // ─── Navigation Param Lists ────────────────────────────────────────────────
 
 export type RootStackParamList = {
@@ -201,6 +218,9 @@ export type RootStackParamList = {
   CreateSession: undefined;
   SessionDetail: { sessionId: string };
   SessionsList: undefined;
+  // Dive log routes
+  DiveLogs: undefined;
+  DiveLogForm: { logId?: string } | undefined;
   // Password reset
   ForgotPassword: undefined;
   ResetPassword: { accessToken: string; refreshToken: string };

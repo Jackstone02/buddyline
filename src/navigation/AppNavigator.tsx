@@ -36,6 +36,8 @@ import DiveRequestDetailScreen from '../screens/buddy/DiveRequestDetailScreen';
 import CreateSessionScreen from '../screens/buddy/CreateSessionScreen';
 import SessionDetailScreen from '../screens/buddy/SessionDetailScreen';
 import SessionsListScreen from '../screens/buddy/SessionsListScreen';
+import DiveLogsListScreen from '../screens/buddy/DiveLogsListScreen';
+import DiveLogFormScreen from '../screens/buddy/DiveLogFormScreen';
 
 // Booking screens
 import BookingFormScreen from '../screens/shared/BookingFormScreen';
@@ -174,6 +176,10 @@ export default function AppNavigator() {
         <Stack.Screen name="CreateSession" component={CreateSessionScreen} />
         <Stack.Screen name="SessionDetail" component={SessionDetailScreen} />
         <Stack.Screen name="SessionsList" component={SessionsListScreen} />
+
+        {/* Dive log */}
+        <Stack.Screen name="DiveLogs" component={DiveLogsListScreen} />
+        <Stack.Screen name="DiveLogForm" component={DiveLogFormScreen} />
 
         {/* Booking flow */}
         <Stack.Screen name="BookingForm" component={BookingFormScreen} />

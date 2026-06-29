@@ -21,6 +21,13 @@ A running log of notable changes to the project. Newest entries on top.
 - Test data stays in `supabase/seed.sql` (dev/local only). Run order at launch: backup →
   reset-production.sql → seed-production.sql.
 
+### 3.2 Dive logs — **Done**
+- New `DiveLog` type + routes (`DiveLogs`, `DiveLogForm`).
+- `DiveLogsListScreen` (logbook with dive-count + personal-best summary) and `DiveLogFormScreen`
+  (add/edit/delete: date, location, depth, duration, discipline, notes).
+- Entry point: Profile → "My Dive Log". Uses existing `dive_logs` table + RLS (no schema change).
+- Verified: tsc clean; expo export bundles 1302 modules.
+
 ### 3.1 Ratings & reviews — **Done**
 - New `Rating` type + reusable `StarRating` component (display with half-stars / tappable input).
 - Customer can rate their instructor after a `completed` booking (BookingDetailScreen): star
